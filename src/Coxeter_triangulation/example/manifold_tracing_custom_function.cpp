@@ -19,7 +19,7 @@ using namespace Gudhi::coxeter_triangulation;
  * the equation of the manifold is x^3*y + y^3*z + z^3*x = 0.
  * The embedding consists of restricting the manifold to the affine subspace z = 1.
  */
-struct Function_surface_on_CP2_in_R4 : public Function {
+struct Function_custom_function : public Function {
 
   Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
     // The real and imaginary parts of the variables x and y
@@ -50,13 +50,13 @@ struct Function_surface_on_CP2_in_R4 : public Function {
     return result;
   }
 
-  Function_surface_on_CP2_in_R4() {}  
+  Function_custom_function() {}  
 };
 
 int main(int argc, char** argv) {
 
   // The function for the (non-compact) manifold
-  Function_surface_on_CP2_in_R4 fun;
+  Function_custom_function fun;
 
   // Seed of the function
   Eigen::VectorXd seed = fun.seed();
@@ -66,7 +66,8 @@ int main(int argc, char** argv) {
   Function_Sm_in_Rd fun_sph(radius, 3, seed);
 
   // Defining the intersection oracle
-  auto oracle = make_oracle(fun, fun_sph);
+  auto oracle = make_oracle(fun);
+  // auto oracle = make_oracle(fun, fun_sph);
 
   // Define a Coxeter triangulation scaled by a factor lambda.
   // The triangulation is translated by a random vector to avoid violating the genericity hypothesis.
@@ -79,17 +80,17 @@ int main(int argc, char** argv) {
   using MT = Manifold_tracing<Coxeter_triangulation<> >;
   using Out_simplex_map = typename MT::Out_simplex_map;
   std::vector<Eigen::VectorXd> seed_points(1, seed);
-  Out_simplex_map interior_simplex_map, boundary_simplex_map;
-  manifold_tracing_algorithm(seed_points, cox_tr, oracle, interior_simplex_map, boundary_simplex_map);
+  Out_simplex_map interior_simplex_map;
+  manifold_tracing_algorithm(seed_points, cox_tr, oracle, interior_simplex_map);
   
   // Constructing the cell complex
   std::size_t intr_d = oracle.amb_d() - oracle.cod_d();
   Cell_complex<Out_simplex_map> cell_complex(intr_d);
-  cell_complex.construct_complex(interior_simplex_map, boundary_simplex_map);
+  cell_complex.construct_complex(interior_simplex_map);
 
   // Output the cell complex to a file readable by medit
   output_meshes_to_medit(3,
-			 "manifold_on_CP2_with_boundary",
+			 "custom_manifold",
 			 build_mesh_from_cell_complex(cell_complex,
 						      Configuration(true, true, true, 1, 5, 3),
 						      Configuration(true, true, true, 2, 13, 14)));
