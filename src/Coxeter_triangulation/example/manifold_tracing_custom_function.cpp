@@ -23,22 +23,11 @@ struct Function_custom_function : public Function {
 
   Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
     // The real and imaginary parts of the variables x and y
-    double xr = p(0), xi = p(1), yr = p(2), yi = p(3);
+    double x = p(0), y = p(1), z = p(2), w = p(3);
     Eigen::VectorXd result(cod_d());
-    
-    // Squares and cubes of real and imaginary parts used in the computations
-    double
-      xr2 = xr*xr, xi2 = xi*xi, yr2 = yr*yr, yi2 = yi*yi,
-      xr3 = xr2*xr, xi3 = xi2*xi, yr3 = yr2*yr, yi3 = yi2*yi;
 
-    // The first coordinate of the output is Re(x^3*y + y^3 + x)
-    result(0) = 
-      xr3*yr - 3*xr*xi2*yr - 3*xr2*xi*yi + xi3*yi
-      + yr3 - 3*yr*yi2 + xr;
-    // The second coordinate of the output is Im(x^3*y + y^3 + x)
-    result(1) =
-      3*xr2*xi*yr + xr3*yi - 3*xr*xi2*yi - xi3*yr
-      + 3*yr2*yi - yi3 + xi;
+    result(0) = std::pow(std::sqrt(x*x + y*y) - R, 2) + z*z + w*w - r*r;
+    result(1) = y/x - 2*(w/z)/(1+(w/z)*(w/z));
     return result;
   }
 
@@ -46,32 +35,36 @@ struct Function_custom_function : public Function {
   std::size_t cod_d() const {return 2;};
 
   Eigen::VectorXd seed() const {
-    Eigen::VectorXd result = Eigen::VectorXd::Zero(4);
+    Eigen::VectorXd result = Eigen::VectorXd::Zero(amb_d());
+    result(0) = R;
+    result(2) = r;
     return result;
   }
 
-  Function_custom_function() {}  
+  Function_custom_function() {}
+private:
+  const double R = 1;
+  const double r = 1;
 };
 
 int main(int argc, char** argv) {
 
   // The function for the (non-compact) manifold
-  Function_custom_function fun;
+  Function_custom_function fun_custom;
+  Eigen::MatrixXd matrix = random_orthogonal_matrix(fun_custom.amb_d());
+  auto fun = make_linear_transformation(fun_custom, matrix);
 
   // Seed of the function
   Eigen::VectorXd seed = fun.seed();
 
-  // Creating the function that defines the boundary of a compact region on the manifold
-  double radius = 3.0;
-  Function_Sm_in_Rd fun_sph(radius, 3, seed);
-
   // Defining the intersection oracle
   auto oracle = make_oracle(fun);
-  // auto oracle = make_oracle(fun, fun_sph);
 
   // Define a Coxeter triangulation scaled by a factor lambda.
   // The triangulation is translated by a random vector to avoid violating the genericity hypothesis.
-  double lambda = 0.2;
+  double lambda = 0.1;
+  if (argc > 1)
+    lambda = atof(argv[1]);
   Coxeter_triangulation<> cox_tr(oracle.amb_d());
   cox_tr.change_offset(Eigen::VectorXd::Random(oracle.amb_d()));
   cox_tr.change_matrix(lambda * cox_tr.matrix());
@@ -82,6 +75,7 @@ int main(int argc, char** argv) {
   std::vector<Eigen::VectorXd> seed_points(1, seed);
   Out_simplex_map interior_simplex_map;
   manifold_tracing_algorithm(seed_points, cox_tr, oracle, interior_simplex_map);
+  std::cout << "Output size = " << interior_simplex_map.size() << "\n";
   
   // Constructing the cell complex
   std::size_t intr_d = oracle.amb_d() - oracle.cod_d();
