@@ -27,7 +27,8 @@ struct Function_custom_function : public Function {
     Eigen::VectorXd result(cod_d());
 
     result(0) = std::pow(std::sqrt(x*x + y*y) - R, 2) + z*z + w*w - r*r;
-    result(1) = y/x - 2*(w/z)/(1+(w/z)*(w/z));
+    // result(1) = y/x - 2*(w/z)/(1+(w/z)*(w/z));
+    result(1) = y - w*std::sin(w);
     return result;
   }
 
