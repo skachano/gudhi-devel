@@ -70,27 +70,6 @@ struct Function_x_abs : public Function {
   Function_x_abs() {}
 };
 
-struct Function_y_abs : public Function {
-
-  Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
-    double x = p(0), y = p(1);
-    Eigen::VectorXd result(cod_d());
-    result(0) = std::abs(y) - 1;
-    return result;
-  }
-
-  std::size_t amb_d() const {return 2;};
-  std::size_t cod_d() const {return 1;};
-
-  Eigen::VectorXd seed() const {
-    Eigen::VectorXd result = Eigen::VectorXd::Zero(amb_d());
-    result(1) = 1;
-    return result;
-  }
-
-  Function_y_abs() {}
-};
-
 
 int main(int argc, char** argv) {
 
@@ -111,7 +90,7 @@ int main(int argc, char** argv) {
   Constant_function fun(d, k, Eigen::VectorXd::Zero(0));  
   Eigen::VectorXd seed = Eigen::VectorXd::Zero(d);
   Function_x_abs fun_x;
-  Function_y_abs fun_y;
+  Function_Sm_in_Rd fun_y(1.5, 1);
   auto oracle = make_oracle(fun, fun_x, fun_y);
 
   // Define a Coxeter triangulation scaled by a factor lambda.

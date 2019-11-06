@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include <gudhi/Coxeter_triangulation.h>
-#include <gudhi/Functions/Constant_function.h>
+#include <gudhi/Functions/Function_affine_plane_in_Rd.h>
 #include <gudhi/Functions/Function_Sm_in_Rd.h>
 #include <gudhi/Implicit_manifold_intersection_oracle_corners.h>
 #include <gudhi/Manifold_tracing.h>
@@ -52,13 +52,13 @@ using namespace Gudhi::coxeter_triangulation;
 struct Function_x_abs : public Function {
 
   Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
-    double x = p(0), y = p(1);
+    double x = p(0);
     Eigen::VectorXd result(cod_d());
     result(0) = std::abs(x) - 1;
     return result;
   }
 
-  std::size_t amb_d() const {return 2;};
+  std::size_t amb_d() const {return 3;};
   std::size_t cod_d() const {return 1;};
 
   Eigen::VectorXd seed() const {
@@ -73,18 +73,18 @@ struct Function_x_abs : public Function {
 struct Function_y_abs : public Function {
 
   Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
-    double x = p(0), y = p(1);
+    double y = p(1);
     Eigen::VectorXd result(cod_d());
     result(0) = std::abs(y) - 1;
     return result;
   }
 
-  std::size_t amb_d() const {return 2;};
+  std::size_t amb_d() const {return 3;};
   std::size_t cod_d() const {return 1;};
 
   Eigen::VectorXd seed() const {
     Eigen::VectorXd result = Eigen::VectorXd::Zero(amb_d());
-    result(1) = 1;
+    result(0) = 1;
     return result;
   }
 
@@ -106,9 +106,11 @@ int main(int argc, char** argv) {
   // auto oracle = make_oracle(fun);
 
   // Test for the constant function and the MTA
-  std::size_t d = 2;
-  std::size_t k = 0;
-  Constant_function fun(d, k, Eigen::VectorXd::Zero(0));  
+  std::size_t d = 3;
+  std::size_t k = 1;
+  Eigen::MatrixXd normal_matrix = Eigen::MatrixXd::Zero(d,k);
+  normal_matrix << 0, 0, 1;
+  Function_affine_plane_in_Rd fun(normal_matrix);
   Eigen::VectorXd seed = Eigen::VectorXd::Zero(d);
   Function_x_abs fun_x;
   Function_y_abs fun_y;
@@ -119,9 +121,10 @@ int main(int argc, char** argv) {
   double lambda = 0.1;
   if (argc > 1)
     lambda = atof(argv[1]);
+  Eigen::MatrixXd rot_matrix = random_orthogonal_matrix(d);
   Coxeter_triangulation<> cox_tr(oracle.amb_d());
   cox_tr.change_offset(Eigen::VectorXd::Random(oracle.amb_d()));
-  cox_tr.change_matrix(lambda * cox_tr.matrix());
+  cox_tr.change_matrix(lambda * rot_matrix * cox_tr.matrix());
   
   // Manifold tracing algorithm
   using MT = Manifold_tracing<Coxeter_triangulation<> >;
@@ -137,16 +140,16 @@ int main(int argc, char** argv) {
 			     boundary1_simplex_map,
 			     boundary2_simplex_map,
 			     corner_simplex_map);
-  std::cout << "Output size (interior) = " << interior_simplex_map.size() << "\n";
+  // std::cout << "Output size (interior) = " << interior_simplex_map.size() << "\n";
   // for (auto& m_pair: interior_simplex_map) 
   //   std::cout << " " << m_pair.first << "\n";
-  std::cout << "Output size (boundary1) = " << boundary1_simplex_map.size() << "\n";
+  // std::cout << "Output size (boundary1) = " << boundary1_simplex_map.size() << "\n";
   // for (auto& m_pair: boundary1_simplex_map)
   //   std::cout << " " << m_pair.first << "\n";
-  std::cout << "Output size (boundary2) = " << boundary2_simplex_map.size() << "\n";
+  // std::cout << "Output size (boundary2) = " << boundary2_simplex_map.size() << "\n";
   // for (auto& m_pair: boundary2_simplex_map)
   //   std::cout << " " << m_pair.first << "\n";
-  std::cout << "Output size (corner) = " << corner_simplex_map.size() << "\n";
+  // std::cout << "Output size (corner) = " << corner_simplex_map.size() << "\n";
   // for (auto& m_pair: corner_simplex_map)
   //   std::cout << " " << m_pair.first << "\n";
   
@@ -180,7 +183,7 @@ int main(int argc, char** argv) {
     + cell_complex.interior_simplex_cell_map(2).size() << "\n";
 
   // Output the cell complex to a file readable by medit
-  output_meshes_to_medit(2,
+  output_meshes_to_medit(3,
   			 "custom_manifold",
   			 build_mesh_from_cell_complex(cell_complex,
   						      Configuration(true, true, true, 1, 5, 3),

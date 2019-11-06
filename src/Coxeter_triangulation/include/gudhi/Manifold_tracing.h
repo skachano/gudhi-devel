@@ -206,6 +206,184 @@ public:
     }
   }
 
+  template <class Point_range,
+	    class Intersection_oracle>
+  void manifold_tracing_algorithm(const Point_range& seed_points,
+				  const Triangulation_& triangulation,
+				  const Intersection_oracle& oracle,
+				  Out_simplex_map& interior_simplex_map,
+				  Out_simplex_map& boundary1_simplex_map,
+				  Out_simplex_map& boundary2_simplex_map,
+				  Out_simplex_map& corner_simplex_map) {
+    std::size_t cod_d = oracle.cod_d();
+    std::queue<Simplex_handle> queue;
+
+    for (const auto& p: seed_points) {
+      Simplex_handle full_simplex = triangulation.locate_point(p);
+      for (Simplex_handle face: full_simplex.face_range(cod_d)) {
+	auto qr = oracle.intersects(face, triangulation);
+	if (qr.success) {
+	  if (oracle.lies_in_domain1(qr.intersection, triangulation)) {
+	    if (oracle.lies_in_domain2(qr.intersection, triangulation)) {
+	      if (interior_simplex_map.emplace(std::make_pair(face, qr.intersection)).second)
+		queue.emplace(face);
+	    }
+	    else { // !oracle.lies_in_domain2(qr.intersection, triangulation)
+	      for (Simplex_handle cof: face.coface_range(cod_d+1)) {
+		auto qrb = oracle.intersects_boundary2(cof, triangulation);
+		if (qrb.success) {
+		  boundary2_simplex_map.emplace(cof, qrb.intersection);
+		  for (Simplex_handle big_cof: cof.cofacet_range()) {
+		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
+		    if (qrc.success)
+		      corner_simplex_map.emplace(big_cof, qrc.intersection);
+		    else // try to find another facet from another boundary
+		      for (Simplex_handle big_cof_fac: big_cof.facet_range())
+			if (boundary1_simplex_map.find(big_cof_fac) != boundary1_simplex_map.end())
+			  corner_simplex_map.emplace(big_cof, triangulation.barycenter(big_cof));
+		  }		    
+		}
+	      }
+	    }
+	  }
+	  else { // !oracle.lies_in_domain1(qr.intersection, triangulation)
+	    if (oracle.lies_in_domain2(qr.intersection, triangulation)) {
+	      for (Simplex_handle cof: face.coface_range(cod_d+1)) {
+		auto qrb = oracle.intersects_boundary1(cof, triangulation);
+		if (qrb.success) {
+		  boundary1_simplex_map.emplace(cof, qrb.intersection);
+		  for (Simplex_handle big_cof: cof.cofacet_range()) {
+		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
+		    if (qrc.success) 
+		      corner_simplex_map.emplace(big_cof, qrc.intersection);
+		    else // try to find another facet from another boundary
+		      for (Simplex_handle big_cof_fac: big_cof.facet_range())
+			if (boundary2_simplex_map.find(big_cof_fac) != boundary2_simplex_map.end())
+			  corner_simplex_map.emplace(big_cof, triangulation.barycenter(big_cof));
+		  }
+		}
+	      }
+	    }
+	    else { // !oracle.lies_in_domain2(qr.intersection, triangulation)
+	      for (Simplex_handle cof: face.coface_range(cod_d+1)) {
+		auto qrb1 = oracle.intersects_boundary1(cof, triangulation);
+		auto qrb2 = oracle.intersects_boundary2(cof, triangulation);
+		bool corners_around = false;
+		if (qrb1.success || qrb2.success) {
+		  for (Simplex_handle big_cof: cof.cofacet_range()) {
+		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
+		    if (qrc.success) {
+		      corner_simplex_map.emplace(big_cof, qrc.intersection);
+		      corners_around = true;
+		    }
+		  }
+		}
+		if (qrb1.success && qrb2.success) {
+		  bool qrb1_lies_inside = oracle.lies_in_domain2(qrb1.intersection, triangulation);
+		  bool qrb2_lies_inside = oracle.lies_in_domain1(qrb2.intersection, triangulation);
+		  if (qrb1_lies_inside && qrb2_lies_inside) {
+		    if (!corners_around)  // JD trick
+		      corner_simplex_map.emplace(cof, (qrb1.intersection + qrb2.intersection)/2);    
+		  }
+		  else if (!qrb1_lies_inside && qrb2_lies_inside)
+		    boundary2_simplex_map.emplace(cof, qrb2.intersection);
+		  else if (qrb1_lies_inside && !qrb2_lies_inside)
+		    boundary1_simplex_map.emplace(cof, qrb1.intersection);
+		}
+		else if (qrb1.success && !qrb2.success)
+		  boundary1_simplex_map.emplace(cof, qrb1.intersection);
+		else if (!qrb1.success && qrb2.success)
+		  boundary2_simplex_map.emplace(cof, qrb2.intersection);
+	      }
+	    }
+	  }
+	  // break;
+	}
+      }
+    }
+    
+    while (!queue.empty()) {
+      Simplex_handle s = queue.front();
+      queue.pop();
+      for (auto cof: s.coface_range(cod_d+1)) {
+	for (auto face: cof.face_range(cod_d)) {
+	  auto qr = oracle.intersects(face, triangulation);
+	  if (qr.success) {
+	    if (oracle.lies_in_domain1(qr.intersection, triangulation)) {
+	      if (oracle.lies_in_domain2(qr.intersection, triangulation)) {
+		if (interior_simplex_map.emplace(face, qr.intersection).second)
+		  queue.emplace(face);
+	      }
+	      else { // !oracle.lies_in_domain2(qr.intersection, triangulation)
+		auto qrb = oracle.intersects_boundary2(cof, triangulation);
+		if (qrb.success) {
+		  boundary2_simplex_map.emplace(cof, qrb.intersection);
+		  for (Simplex_handle big_cof: cof.cofacet_range()) {
+		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
+		    if (qrc.success) 
+		      corner_simplex_map.emplace(big_cof, qrc.intersection);
+		    else // try to find another facet from another boundary
+		      for (Simplex_handle big_cof_fac: big_cof.facet_range())
+			if (boundary1_simplex_map.find(big_cof_fac) != boundary1_simplex_map.end())
+			  corner_simplex_map.emplace(big_cof, triangulation.barycenter(big_cof));
+		  }
+		}		
+	      }
+	    }
+	    else { // !oracle.lies_in_domain1(qr.intersection, triangulation)
+	      if (oracle.lies_in_domain2(qr.intersection, triangulation)) {
+		auto qrb = oracle.intersects_boundary1(cof, triangulation);
+		if (qrb.success) {
+		  boundary1_simplex_map.emplace(cof, qrb.intersection);
+		  for (Simplex_handle big_cof: cof.cofacet_range()) {
+		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
+		    if (qrc.success) 
+		      corner_simplex_map.emplace(big_cof, qrc.intersection);		  
+		    else // try to find another facet from another boundary
+		      for (Simplex_handle big_cof_fac: big_cof.facet_range())
+			if (boundary2_simplex_map.find(big_cof_fac) != boundary2_simplex_map.end())
+			  corner_simplex_map.emplace(big_cof, triangulation.barycenter(big_cof));
+		  }
+		}
+	      }
+	      else { // !oracle.lies_in_domain2(qr.intersection, triangulation)
+		auto qrb1 = oracle.intersects_boundary1(cof, triangulation);
+		auto qrb2 = oracle.intersects_boundary2(cof, triangulation);
+		bool corners_around = false;
+		if (qrb1.success || qrb2.success) {
+		  for (Simplex_handle big_cof: cof.cofacet_range()) {
+		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
+		    if (qrc.success) {
+		      corner_simplex_map.emplace(big_cof, qrc.intersection);
+		      corners_around = true;
+		    }
+		  }
+		}
+		if (qrb1.success && qrb2.success) {
+		  bool qrb1_lies_inside = oracle.lies_in_domain2(qrb1.intersection, triangulation);
+		  bool qrb2_lies_inside = oracle.lies_in_domain1(qrb2.intersection, triangulation);
+		  if (qrb1_lies_inside && qrb2_lies_inside) {
+		    if (!corners_around)  // JD trick
+		      corner_simplex_map.emplace(cof, (qrb1.intersection + qrb2.intersection)/2);    
+		  }
+		  else if (!qrb1_lies_inside && qrb2_lies_inside)
+		    boundary2_simplex_map.emplace(cof, qrb2.intersection);
+		  else if (qrb1_lies_inside && !qrb2_lies_inside)
+		    boundary1_simplex_map.emplace(cof, qrb1.intersection);
+		}
+		else if (qrb1.success && !qrb2.success)
+		  boundary1_simplex_map.emplace(cof, qrb1.intersection);
+		else if (!qrb1.success && qrb2.success)
+		  boundary2_simplex_map.emplace(cof, qrb2.intersection);		
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  
   /** \brief Empty constructor */
   Manifold_tracing() {}
   
@@ -297,6 +475,27 @@ void manifold_tracing_algorithm(const Point_range& seed_points,
 				oracle,
 				interior_simplex_map,
 				boundary_simplex_map);
+}
+
+template <class Point_range,
+	  class Triangulation,
+	  class Intersection_oracle,
+	  class Out_simplex_map>
+void manifold_tracing_algorithm(const Point_range& seed_points,
+				const Triangulation& triangulation,
+				const Intersection_oracle& oracle,
+				Out_simplex_map& interior_simplex_map,
+				Out_simplex_map& boundary1_simplex_map,
+				Out_simplex_map& boundary2_simplex_map,
+				Out_simplex_map& corner_simplex_map) {
+  Manifold_tracing<Triangulation> mt;
+  mt.manifold_tracing_algorithm(seed_points,
+				triangulation,
+				oracle,
+				interior_simplex_map,
+				boundary1_simplex_map,
+				boundary2_simplex_map,
+				corner_simplex_map);
 }
 
 
