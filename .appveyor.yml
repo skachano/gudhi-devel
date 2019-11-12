@@ -61,3 +61,5 @@ build_script:
       MSBuild GUDHIdev.sln /m /p:Configuration=Release /p:Platform=x64 &
       ctest -j 1 -C Release -E diff_files
     )
+
+    
