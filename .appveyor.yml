@@ -59,7 +59,7 @@ build_script:
       ctest -j 1 -C Release
     ) else (
       MSBuild GUDHIdev.sln /m /p:Configuration=Release /p:Platform=x64 &
-      ctest -j 1 -C Release -E diff_files -R Coxeter_triangulation_manifold_tracing_test -VV
+      ctest -j 1 -C Release -R Coxeter_triangulation_manifold_tracing_test -VV
     )
 
     
