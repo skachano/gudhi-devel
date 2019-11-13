@@ -59,7 +59,6 @@ build_script:
       ctest -j 1 -C Release
     ) else (
       MSBuild GUDHIdev.sln /m /p:Configuration=Release /p:Platform=x64 &
-      ctest -j 1 -C Release -R Coxeter_triangulation_manifold_tracing_test -VV
+      C:\projects\gudhi-devel-h94xp\build\src\Coxeter_triangulation\test\Release\Coxeter_triangulation_manifold_tracing_test.exe "--report_level=detailed" "--log_level=all"
+      #ctest -j 1 -C Release -E diff_files
     )
-
-    
