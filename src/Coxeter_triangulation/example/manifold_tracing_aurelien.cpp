@@ -11,7 +11,8 @@
 #include <gudhi/Clock.h>
 
 #include <gudhi/IO/build_mesh_from_cell_complex_corners.h>
-#include <gudhi/IO/output_meshes_to_medit.h>
+// #include <gudhi/IO/output_meshes_to_medit.h>
+#include <gudhi/IO/output_meshes_to_off.h>
 
 using namespace Gudhi::coxeter_triangulation;
 
@@ -208,7 +209,8 @@ struct Function_y_abs : public Function {
 int main(int argc, char** argv) {
 
   // The function for the (non-compact) manifold
-  Function_aurelien_xY_yZ_zX fun_custom;
+  Function_aurelien_x3y_y3z_z3x fun_custom;
+  // Function_aurelien_xY_yZ_zX fun_custom;
   Function_x_y fun_xy;
   Function_y_abs fun_y;
   Eigen::MatrixXd matrix = random_orthogonal_matrix(fun_custom.amb_d());
@@ -313,10 +315,15 @@ int main(int argc, char** argv) {
   //   i0 + a0 + b0 + c0 - i1 - a1 - b1 + i2 << "\n";
 
   // Output the cell complex to a file readable by medit
-  output_meshes_to_medit(3,
-  			 "custom_manifold",
-  			 build_mesh_from_cell_complex(cell_complex,
-  						      Configuration(true, true, true, 1, 5, 3),
-  						      Configuration(true, true, true, 2, 13, 14)));
+  // output_meshes_to_medit(3,
+  // 			 "custom_manifold",
+  // 			 build_mesh_from_cell_complex(cell_complex,
+  // 						      Configuration(true, true, true, 1, 5, 3),
+  // 						      Configuration(true, true, true, 2, 13, 14)));
+  output_meshes_to_off(false,
+		       "custom_manifold",
+		       build_mesh_from_cell_complex(cell_complex,
+						    Configuration(true, true, true, 1, 5, 3),
+						    Configuration(true, true, true, 2, 13, 14)));
   return 0;
 }
