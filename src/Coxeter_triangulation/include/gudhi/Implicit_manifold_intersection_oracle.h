@@ -21,6 +21,7 @@
 #include <gudhi/Query_result.h>
 
 #include <vector>
+#include <tuple>
 
 namespace Gudhi {
 
@@ -42,6 +43,8 @@ template<class Function_,
 	 class... Domain_functions_>
 class Implicit_manifold_intersection_oracle {
 
+  typedef std::tuple<Domain_functions_...> Domain_function_tuple;
+  
 //   /* Computes the affine coordinates of the intersection point of the implicit manifold
 //    * and the affine hull of the simplex. */
 //   template <class Simplex_handle, 
@@ -206,11 +209,17 @@ public:
 //     return pl_p(0) < 0;
 //   }
 
-//   /** \brief Returns the function that defines the interior of the manifold */
-//   const Function_& function() const {
-//     return fun_;
-//   }
-  
+  /** \brief Returns the function that defines the interior of the manifold. */
+  const Function_& function() const {
+    return function_;
+  }
+
+  /** \brief Returns the i-th domain function for a given i. */
+  template <std::size_t I>
+  const typename std::tuple_element<I, Domain_function_tuple>::type& domain_function() const {
+    return std::get<I>(domain_function_tuple_);
+  }
+
   /** \brief Constructs an intersection oracle for an implicit manifold potentially 
    *   with boundary from given function and domain.
    *
@@ -222,30 +231,18 @@ public:
   Implicit_manifold_intersection_oracle(const Function_& function,
 					const Domain_functions_&... domain_functions)
     : function_(function), domain_function_tuple_(std::make_tuple(domain_functions...)) {}
-
-  // /** \brief Constructs an intersection oracle for an implicit manifold 
-  //  *   without boundary from a given function.
-  //  *
-  //  *   \details To use this constructor, the template Domain_function_ needs to be left 
-  //  *   at its default value (Gudhi::coxeter_triangulation::Constant_function).
-  //  *
-  //  *  @param function The input function that represents the implicit manifold
-  //  *   without boundary.
-  //  */
-  // Implicit_manifold_intersection_oracle(const Function_& function)
-  //   : function_(function) {}
   
 private:
   Function_ function_;
-  std::tuple<Domain_functions_...> domain_function_tuple_;
+  Domain_function_tuple domain_function_tuple_;
 };
 
 /** \brief Static constructor of an intersection oracle from a function with a domain.
  *
  *  @param function The input function that represents the implicit manifold
  *   before the restriction with the domain.
- *  @param domain_function The input domain function that can be used to define an implicit
- *   manifold with boundary.
+ *  @param domain_functions The input domain functions that can be used to define an implicit
+ *   manifold with boundary and corners.
  *
  *  \ingroup coxeter_triangulation
  */
@@ -257,19 +254,6 @@ make_oracle(const Function_& function,
   return Implicit_manifold_intersection_oracle<Function_, Domain_functions_...>(function,
 										domain_functions...);
 }
-
-
-// /** \brief Static constructor of an intersection oracle from a function without a domain.
-//  *
-//  *  @param function The input function that represents the implicit manifold
-//  *   without boundary.
-//  *
-//  *  \ingroup coxeter_triangulation
-//  */
-// template<class Function_>
-// Implicit_manifold_intersection_oracle<Function_> make_oracle(const Function_& function){
-//   return Implicit_manifold_intersection_oracle<Function_>(function);
-// }
 
 } // namespace coxeter_triangulation 
 

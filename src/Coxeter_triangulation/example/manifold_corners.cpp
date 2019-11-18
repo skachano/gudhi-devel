@@ -40,5 +40,14 @@ int main(int argc, char** argv) {
   Function_affine_plane_in_Rd fun_bound(normal_matrix, -seed/2);
     
   // Defining the intersection oracle
-  auto oracle = make_oracle(fun_flat_torus_rotated);
+  auto oracle = make_oracle(fun_flat_torus_rotated, fun_bound);
+
+  auto oracle_function = oracle.function();
+  std::cout << "oracle_function.amb_d() = " << oracle_function.amb_d() << "\n";
+  std::cout << "oracle_function.cod_d() = " << oracle_function.cod_d() << "\n";
+  std::cout << "oracle_function.seed() =\n" << oracle_function.seed() << "\n";
+  auto oracle_domain_function = oracle.domain_function<0>();
+  std::cout << "oracle_domain_function.amb_d() = " << oracle_domain_function.amb_d() << "\n";
+  std::cout << "oracle_domain_function.cod_d() = " << oracle_domain_function.cod_d() << "\n";
+  std::cout << "oracle_domain_function.seed() =\n" << oracle_domain_function.seed() << "\n";
 }
