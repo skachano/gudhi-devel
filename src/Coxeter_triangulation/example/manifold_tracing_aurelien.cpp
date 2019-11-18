@@ -1,4 +1,5 @@
 #include <iostream>
+#include <complex>
 
 #include <gudhi/Coxeter_triangulation.h>
 #include <gudhi/Functions/Function_affine_plane_in_Rd.h>
@@ -15,6 +16,22 @@
 #include <gudhi/IO/output_meshes_to_off.h>
 
 using namespace Gudhi::coxeter_triangulation;
+
+int binomialCoeff(int n, int k) 
+{ 
+  int res = 1; 
+  
+    // Since C(n, k) = C(n, n-k) 
+  if ( k > n - k ) 
+    k = n - k; 
+  
+  // Calculate value of [n * (n-1) *---* (n-k+1)] / [k * (k-1) *----* 1] 
+  for (int i = 0; i < k; ++i) { 
+    res *= (n - i); 
+    res /= (i + 1); 
+  }   
+  return res; 
+} 
 
 /* A definition of a function that defines a 2d surface embedded in R^4, but that normally
  * lives on a complex projective plane.
@@ -163,6 +180,47 @@ private:
   const double r = 1;
 };
 
+struct Function_aurelien_xYd_yZd_zXd : public Function {
+  Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
+    // The real and imaginary parts of the variables x and y
+    std::complex<double> x(p(0), p(1)), y(p(2), p(3));
+    std::complex<double> res_complex = x * std::pow(std::conj(y), d_) + y + std::pow(std::conj(x), d_);
+    Eigen::VectorXd result(cod_d());
+    result << std::real(res_complex), std::imag(res_complex);
+    // The first coordinate of the output is Re(x*'y^d + y + 'x^d)
+    // for (std::size_t i = 0, sign = 1; i < d_; i += 2, sign = -sign)
+    //   result(0) += sign * xr * binomialCoeff(d_, i) * std::pow(-yi, i) * std::pow(yr, d_ - i);
+    // for (std::size_t i = 1, sign = -1; i < d_; i += 2, sign = -sign)
+    //   result(0) += sign * xi * binomialCoeff(d_, i) * std::pow(-yi, i) * std::pow(yr, d_ - i);
+    // result(0) += yr;
+    // for (std::size_t i = 0, sign = 1; i < d_; i += 2, sign = -sign)
+    //   result(0) += sign * binomialCoeff(d_, i) * std::pow(-xi, i) * std::pow(xr, d_ - i);
+
+    // The second coordinate of the output is Im(x*'y^d + y + 'x^d)
+    // for (std::size_t i = 1, sign = 1; i < d_; i += 2, sign = -sign)
+    //   result(1) += sign * xr * binomialCoeff(d_, i) * std::pow(-yi, i) * std::pow(yr, d_ - i);
+    // for (std::size_t i = 0, sign = 1; i < d_; i += 2, sign = -sign)
+    //   result(1) += sign * xi * binomialCoeff(d_, i) * std::pow(-yi, i) * std::pow(yr, d_ - i);
+    // result(1) += yi;
+    // for (std::size_t i = 1, sign = 1; i < d_; i += 2, sign = -sign)
+    //   result(1) += sign * binomialCoeff(d_, i) * std::pow(-xi, i) * std::pow(xr, d_ - i);
+    return result;
+  }
+  
+  std::size_t amb_d() const {return 4;};
+  std::size_t cod_d() const {return 2;};
+
+  Eigen::VectorXd seed() const {
+    return seed_;
+  }
+
+  Function_aurelien_xYd_yZd_zXd(std::size_t d, Eigen::VectorXd seed)
+    : d_(d), seed_(seed) {}
+private:
+  std::size_t d_;
+  Eigen::VectorXd seed_;  
+};
+
 struct Function_x_y : public Function {
 
   Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
@@ -209,8 +267,14 @@ struct Function_y_abs : public Function {
 int main(int argc, char** argv) {
 
   // The function for the (non-compact) manifold
-  Function_aurelien_x3y_y3z_z3x fun_custom;
+  // Function_aurelien_x3y_y3z_z3x fun_custom;
+  // Function_aurelien_x2Y_y2Z_z2X fun_custom;
   // Function_aurelien_xY_yZ_zX fun_custom;
+  // Eigen::Vector4d seed0(-1./3, 0, 0.5, 0);
+  // Function_aurelien_xYd_yZd_zXd fun_custom(1, seed0);
+  Eigen::Vector4d seed0(-0.90388511704530858879416532, 0, 0.5, 0);
+  Function_aurelien_xYd_yZd_zXd fun_custom(7, seed0);
+
   Function_x_y fun_xy;
   Function_y_abs fun_y;
   Eigen::MatrixXd matrix = random_orthogonal_matrix(fun_custom.amb_d());
