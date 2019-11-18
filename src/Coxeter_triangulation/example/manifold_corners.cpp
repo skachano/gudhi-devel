@@ -4,6 +4,7 @@
 #include <gudhi/Coxeter_triangulation.h>
 #include <gudhi/Functions/Function_affine_plane_in_Rd.h>
 #include <gudhi/Functions/Function_Sm_in_Rd.h>
+#include <gudhi/Constraint_set.h>
 #include <gudhi/Implicit_manifold_intersection_oracle.h>
 #include <gudhi/Manifold_tracing.h>
 #include <gudhi/Cell_complex_corners.h>
