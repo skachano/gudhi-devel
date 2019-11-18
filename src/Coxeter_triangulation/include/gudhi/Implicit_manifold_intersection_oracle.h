@@ -181,7 +181,7 @@ public:
   }
 
   /** \brief Returns the I-th constraint function for a given I. 
-   *  @param[in] I Template parameter that represents the number of the constraint function
+   *  @param[in] I Template parameter that represents the position of the constraint function
    *   starting from 0.
    */
   template <std::size_t I>
@@ -190,11 +190,11 @@ public:
   }
 
   /** \brief Constructs an intersection oracle for an implicit manifold potentially 
-   *   with boundary from given function and domain.
+   *   with boundary and corners from given function and constraints.
    *
-   *  @param function The input function that represents the implicit manifold
-   *   before the restriction with the domain.
-   *  @param constraint_functions The input constraint functions that can be used to define an implicit
+   *  @param[in] function The input function that represents the implicit manifold
+   *   before the applying the constraints.
+   *  @param[in] constraint_functions The input constraint functions that can be used to define an implicit
    *   manifold with boundary and corners.
    */
   Implicit_manifold_intersection_oracle(const Function_& function,
@@ -206,11 +206,11 @@ private:
   Constraint_function_tuple constraint_function_tuple_;
 };
 
-/** \brief Static constructor of an intersection oracle from a function with a domain.
+/** \brief Static constructor of an intersection oracle from a function and constraints.
  *
- *  @param function The input function that represents the implicit manifold
- *   before the restriction with the domain.
- *  @param constraint_functions The input constraint functions that can be used to define an implicit
+ *  @param[in] function The input function that represents the implicit manifold
+ *   before the applying the constraints.
+ *  @param[in] constraint_functions The input constraint functions that can be used to define an implicit
  *   manifold with boundary and corners.
  *
  *  \ingroup coxeter_triangulation
@@ -220,8 +220,9 @@ template<class Function_,
 Implicit_manifold_intersection_oracle<Function_, Constraint_functions_...>
 make_oracle(const Function_& function,
 	    const Constraint_functions_&... constraint_functions){
-  return Implicit_manifold_intersection_oracle<Function_, Constraint_functions_...>(function,
-										    constraint_functions...);
+  return Implicit_manifold_intersection_oracle<Function_,
+					       Constraint_functions_...>(function,
+									 constraint_functions...);
 }
 
 } // namespace coxeter_triangulation 

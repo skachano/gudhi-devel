@@ -47,8 +47,8 @@ int main(int argc, char** argv) {
   std::cout << "oracle_function.amb_d() = " << oracle_function.amb_d() << "\n";
   std::cout << "oracle_function.cod_d() = " << oracle_function.cod_d() << "\n";
   std::cout << "oracle_function.seed() =\n" << oracle_function.seed() << "\n";
-  auto oracle_domain_function = oracle.domain_function<0>();
-  std::cout << "oracle_domain_function.amb_d() = " << oracle_domain_function.amb_d() << "\n";
-  std::cout << "oracle_domain_function.cod_d() = " << oracle_domain_function.cod_d() << "\n";
-  std::cout << "oracle_domain_function.seed() =\n" << oracle_domain_function.seed() << "\n";
+  auto oracle_constraint_function = oracle.constraint_function<0>();
+  std::cout << "oracle_constraint_function.amb_d() = " << oracle_constraint_function.amb_d() << "\n";
+  std::cout << "oracle_constraint_function.cod_d() = " << oracle_constraint_function.cod_d() << "\n";
+  std::cout << "oracle_constraint_function.seed() =\n" << oracle_constraint_function.seed() << "\n";
 }
