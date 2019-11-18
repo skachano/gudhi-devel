@@ -105,7 +105,26 @@ class Implicit_manifold_intersection_oracle {
     Eigen::VectorXd intersection = lambda.transpose()*vertex_matrix;
     return QR({intersection, true});
   }
-  
+
+  /* Get which constraints are saturated by the given point */
+  template <class Constraint_set, std::size_t I = 0, typename... T>
+  inline typename std::enable_if<I == sizeof... (T), void>::type
+  get_constraints(const std::tuple<T...>& tuple,
+		  const Eigen::VectorXd& p,
+		  Constraint_set& constraint_set) const {
+  }
+
+  template <class Constraint_set, std::size_t I = 0, typename... T>
+  inline typename std::enable_if<I != sizeof... (T), void>::type
+  get_constraints(const std::tuple<T...>& tuple,
+		  const Eigen::VectorXd& p,
+		  Constraint_set& constraint_set) const {
+    const auto& f = std::get<I>(tuple);
+    if (f(p)(0) == 0)
+      constraint_set.insert(I);
+    get_constraints<Constraint_set, I+1, T...>(tuple, p, constraint_set);
+  }
+
 public:
 
   /** \brief Ambient dimension of the implicit manifold. */
@@ -175,13 +194,28 @@ public:
     return true;
   }
 
+  /* \brief Writes in the constraint set all indices of functions that are saturated
+   *  by a given point.
+   * @param[in] p The input point.
+   * @param[out] constraint_set The output constraint_set.
+   */
+  template <class Constraint_set>
+  void saturating_constraints(const Eigen::VectorXd& p, Constraint_set& constraint_set) const {
+    get_constraints(constraint_function_tuple_, p, constraint_set);
+  }
+  
   /** \brief Returns the function that defines the interior of the manifold. */
   const Function_& function() const {
     return function_;
   }
 
+    /** \brief Returns the number of constraints. */
+  std::size_t number_of_constraints() const {
+    return std::tuple_size<Constraint_functions_...>(constraint_function_tuple_);
+  }
+
   /** \brief Returns the I-th constraint function for a given I. 
-   *  @param[in] I Template parameter that represents the position of the constraint function
+   *  @param[in] I Template parameter that represents the index of the constraint function
    *   starting from 0.
    */
   template <std::size_t I>

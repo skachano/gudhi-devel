@@ -43,12 +43,18 @@ int main(int argc, char** argv) {
   // Defining the intersection oracle
   auto oracle = make_oracle(fun_flat_torus_rotated, fun_bound);
 
-  auto oracle_function = oracle.function();
-  std::cout << "oracle_function.amb_d() = " << oracle_function.amb_d() << "\n";
-  std::cout << "oracle_function.cod_d() = " << oracle_function.cod_d() << "\n";
-  std::cout << "oracle_function.seed() =\n" << oracle_function.seed() << "\n";
-  auto oracle_constraint_function = oracle.constraint_function<0>();
-  std::cout << "oracle_constraint_function.amb_d() = " << oracle_constraint_function.amb_d() << "\n";
-  std::cout << "oracle_constraint_function.cod_d() = " << oracle_constraint_function.cod_d() << "\n";
-  std::cout << "oracle_constraint_function.seed() =\n" << oracle_constraint_function.seed() << "\n";
+  // Define a Coxeter triangulation scaled by a factor lambda.
+  // The triangulation is translated by a random vector to avoid violating the genericity hypothesis.
+  double lambda = 0.2;
+  Coxeter_triangulation<> cox_tr(oracle.amb_d());
+  cox_tr.change_offset(Eigen::VectorXd::Random(oracle.amb_d()));
+  cox_tr.change_matrix(lambda * cox_tr.matrix());
+
+  // Manifold tracing algorithm
+  using MT = Manifold_tracing<Coxeter_triangulation<> >;
+  using Out_simplex_map = typename MT::Out_simplex_map;
+  std::vector<Eigen::VectorXd> seed_points(1, seed);
+  Out_simplex_map out_simplex_map;
+  manifold_tracing_algorithm(seed_points, cox_tr, oracle, out_simplex_map);
+  
 }
