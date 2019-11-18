@@ -32,18 +32,17 @@ namespace coxeter_triangulation {
  *
  *  \tparam Function_ The function template parameter. Should be a model of 
  *   the concept FunctionForImplicitManifold.
- *  \tparam Domain_function_ The domain function template parameter. Should be a model of
- *   the concept FunctionForImplicitManifold.
+ *  \tparam Constraint_functions_ The pack template parameter for constraint functions. All functions
+ *   should be models of the concept FunctionForImplicitManifold.
  *
  *  \ingroup coxeter_triangulation
  */
 template<class Function_,
-	 class... Domain_functions_>
+	 class... Constraint_functions_>
 class Implicit_manifold_intersection_oracle {
 
-  typedef std::tuple<Domain_functions_...> Domain_function_tuple;
+  typedef std::tuple<Constraint_functions_...> Constraint_function_tuple;
 
-public:
   /* Computes the affine coordinates of the intersection point of the implicit manifold
    * and the affine hull of the simplex. */
   template <class Simplex_handle,
@@ -68,7 +67,7 @@ public:
       for (; i < cod_d + 1; ++i)
 	matrix(i, j) = v_coords(i-1);
       for (std::size_t& I: constraint_set) {
-	Eigen::VectorXd bv_coords = domain_function<I>()(triangulation.cartesian_coordinates(v));
+	Eigen::VectorXd bv_coords = constraint_function<I>()(triangulation.cartesian_coordinates(v));
 	matrix(i++, j) = bv_coords(0);
       }
       j++;
@@ -119,22 +118,25 @@ public:
     return function_.cod_d();
   }
 
-  /** \brief Intersection query with the relative interior of the manifold.
+  /** \brief Intersection query with the manifold.
    *  
    *  \details The returned structure Query_result contains the boolean value
    *   that is true only if the intersection point of the query simplex and
-   *   the relative interior of the manifold exists, the intersection point
-   *   and the face of the query simplex that contains 
-   *   the intersection point.
+   *   the piece of the manifold that saturates a given set of constraints exists
+   *   and the intersection point.
    *   
    *  \tparam Simplex_handle The class of the query simplex.
    *   Needs to be a model of the concept SimplexInCoxeterTriangulation.
+   *  \tparam Simplex_handle The class of the constraint set.
+   *   Needs to be a model of the concept ConstraintSetForManifoldTracing.
    *  \tparam Triangulation The class of the triangulation.
    *   Needs to be a model of the concept TriangulationForManifoldTracing.
    *
    *  @param[in] simplex The query simplex. The dimension of the simplex
-   *   should be the same as the codimension of the manifold 
-   *   (the codomain dimension of the function).
+   *   should be the codimension of the manifold (the codomain dimension of the function)
+   *   + the number of constraints in constraint_set.
+   *  @param[in] constraint_set The set of constraints that defines a stratum on
+   *   the manifold.
    *  @param[in] triangulation The ambient triangulation. The dimension of 
    *   the triangulation should be the same as the ambient dimension of the manifold 
    *   (the domain dimension of the function).
@@ -149,13 +151,14 @@ public:
     return intersection_result(lambda, simplex, triangulation);
   }
   
-  /** \brief Returns true if the input point lies inside the piecewise-linear
-   *   domain induced by the given ambient triangulation that defines the relative
-   *   interior of the piecewise-linear approximation of the manifold.
+  /** \brief Returns true if the input point lies within the piecewise-linear
+   *   domains defined by a given set of constraint functions.
    *
-   * @param p The input point. Needs to have the same dimension as the ambient
+   * @param[in] p The input point. Needs to have the same dimension as the ambient
    *  dimension of the manifold (the domain dimension of the function).
-   * @param triangulation The ambient triangulation. Needs to have the same
+   * @param[in] constraint_set The set of constraints that defines a stratum on
+   *   the manifold.
+   * @param[in] triangulation The ambient triangulation. Needs to have the same
    *  dimension as the ambient dimension of the manifold 
    *  (the domain dimension of the function).
    */
@@ -165,7 +168,7 @@ public:
 		      const Constraint_set& constraint_set,
 		      const Triangulation& triangulation) const {
     for (const std::size_t& I: constraint_set) {
-      Eigen::VectorXd pl_p = make_pl_approximation(domain_function<I>(), triangulation)(p);
+      Eigen::VectorXd pl_p = make_pl_approximation(constraint_function<I>(), triangulation)(p);
       if (pl_p(0) > 0) 
 	return false;
     }
@@ -177,13 +180,13 @@ public:
     return function_;
   }
 
-  /** \brief Returns the I-th domain function for a given I. 
-   *  @param[in] I Template parameter that represents the number of the domain function
+  /** \brief Returns the I-th constraint function for a given I. 
+   *  @param[in] I Template parameter that represents the number of the constraint function
    *   starting from 0.
    */
   template <std::size_t I>
-  const typename std::tuple_element<I, Domain_function_tuple>::type& domain_function() const {
-    return std::get<I>(domain_function_tuple_);
+  const typename std::tuple_element<I, Constraint_function_tuple>::type& constraint_function() const {
+    return std::get<I>(constraint_function_tuple_);
   }
 
   /** \brief Constructs an intersection oracle for an implicit manifold potentially 
@@ -191,34 +194,34 @@ public:
    *
    *  @param function The input function that represents the implicit manifold
    *   before the restriction with the domain.
-   *  @param domain_functions The input domain functions that can be used to define an implicit
+   *  @param constraint_functions The input constraint functions that can be used to define an implicit
    *   manifold with boundary and corners.
    */
   Implicit_manifold_intersection_oracle(const Function_& function,
-					const Domain_functions_&... domain_functions)
-    : function_(function), domain_function_tuple_(std::make_tuple(domain_functions...)) {}
+					const Constraint_functions_&... constraint_functions)
+    : function_(function), constraint_function_tuple_(std::make_tuple(constraint_functions...)) {}
   
 private:
   Function_ function_;
-  Domain_function_tuple domain_function_tuple_;
+  Constraint_function_tuple constraint_function_tuple_;
 };
 
 /** \brief Static constructor of an intersection oracle from a function with a domain.
  *
  *  @param function The input function that represents the implicit manifold
  *   before the restriction with the domain.
- *  @param domain_functions The input domain functions that can be used to define an implicit
+ *  @param constraint_functions The input constraint functions that can be used to define an implicit
  *   manifold with boundary and corners.
  *
  *  \ingroup coxeter_triangulation
  */
 template<class Function_,
-	 class... Domain_functions_>
-Implicit_manifold_intersection_oracle<Function_, Domain_functions_...>
+	 class... Constraint_functions_>
+Implicit_manifold_intersection_oracle<Function_, Constraint_functions_...>
 make_oracle(const Function_& function,
-	    const Domain_functions_&... domain_functions){
-  return Implicit_manifold_intersection_oracle<Function_, Domain_functions_...>(function,
-										domain_functions...);
+	    const Constraint_functions_&... constraint_functions){
+  return Implicit_manifold_intersection_oracle<Function_, Constraint_functions_...>(function,
+										    constraint_functions...);
 }
 
 } // namespace coxeter_triangulation 
