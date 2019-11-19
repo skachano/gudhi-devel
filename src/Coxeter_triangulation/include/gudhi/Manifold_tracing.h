@@ -51,7 +51,7 @@ class Manifold_tracing {
   
 public:
 
-  /** \brief A pair of a constraint set and an intersection point */
+  /** \brief A pair of a constraint set and an intersection point. */
   struct Constraint_set_intersection_pair {
     Constraint_set constraint_set;
     Eigen::VectorXd intersection;
@@ -59,14 +59,24 @@ public:
     Constraint_set_intersection_pair(const Constraint_set& c_set, const Eigen::VectorXd& p)
       : constraint_set(c_set), intersection(p) {};
   };
+
+  /** \brief A pair of a simplex handle and a constraint set. */
+  struct Simplex_handle_constraint_set_pair {
+    Simplex_handle simplex_handle;
+    Constraint_set constraint_set;
+
+    Simplex_handle_constraint_set_pair(const Simplex_handle& s, const Constraint_set& c_set)
+      : simplex_handle(s), constraint_set(c_set) {};
+  };
   
   /** \brief Type of the output simplex map with keys of type Triangulation_::Simplex_handle
    *   and values of type Constraint_set_intersection_pair.
    *   This type should be used for the output in the method manifold_tracing_algorithm.
    */
   typedef std::unordered_map<Simplex_handle,
-			     Constraint_set_intersection_pair,
-			     Simplex_hash> Out_simplex_map;
+			     std::pair<Constraint_set, Eigen::VectorXd>,
+			     Simplex_hash>
+  Out_simplex_map;
 
   /**
    * \brief Computes the set of k-simplices that intersect
@@ -89,49 +99,49 @@ public:
    * the input triangulation that intersect the input manifold and the mapped values 
    * are the intersection points.
    */
-  template <class Point_range,
-	    class Intersection_oracle>
-  void manifold_tracing_algorithm(const Point_range& seed_points,
+  template <class Intersection_oracle>
+  void manifold_tracing_algorithm(const Eigen::VectorXd& seed_point,
 				  const Triangulation_& triangulation,
 				  const Intersection_oracle& oracle,
 				  Out_simplex_map& out_simplex_map) {
     std::size_t amb_d = oracle.amb_d();
     std::size_t cod_d = oracle.cod_d();
-    std::queue<Simplex_handle> queue;
+    std::queue<std::pair<Simplex_handle, Constraint_set> > queue;
 
-    for (const auto& p: seed_points) {
-      Constraint_set init_constraint_set;
-      oracle.saturating_constraints(p, init_constraint_set);
-      typename Simplex_handle::Vertex y(amb_d, 0);
-      typename Simplex_handle::OrderedSetPartition omega(cod_d + 1 + init_constraint_set.size());
-      for (std::size_t i = 0; i < omega.size(); ++i) {
-	omega[i].push_back(i);
+    Constraint_set init_constraint_set;
+    for (std::size_t I = 0; I < oracle.constraint_functions().size(); ++I)
+      if ((*oracle.constraint_functions().at(I))(seed_point)(0) == 0)
+	init_constraint_set.insert(I);
+    typename Simplex_handle::Vertex y(amb_d, 0);
+    typename Simplex_handle::OrderedSetPartition omega(cod_d + 1 + init_constraint_set.size());
+    for (std::size_t i = 0; i < omega.size(); ++i) {
+      omega[i].push_back(i);
+    }
+    for (std::size_t i = omega.size(); i < amb_d + 1; ++i) {
+      omega[omega.size() - 1].push_back(i);
+    }
+    Simplex_handle init_s(y, omega);
+    Eigen::VectorXd barycenter = triangulation.barycenter(init_s);
+    out_simplex_map.emplace(std::make_pair(init_s,
+  					   std::make_pair(init_constraint_set, seed_point)));
+    queue.emplace(std::make_pair(init_s, init_constraint_set));
+    Eigen::VectorXd p_shift = seed_point - barycenter;
+    
+    while (!queue.empty()) {
+      Simplex_handle s;
+      Constraint_set constr;
+      std::tie(s, constr) = queue.front();
+      queue.pop();
+      for (auto cof: s.coface_range(cod_d+1)) {
+    	for (auto face: cof.face_range(cod_d)) {
+  	  Query_result<Simplex_handle> qr = oracle.intersects(face, constr, triangulation);
+  	  if (qr.success)
+  	    // && out_simplex_map.emplace(std::make_pair(face, qr.intersection)).second)
+  	    queue.emplace(std::make_pair(face, constr));
+    	}
       }
-      for (std::size_t i = omega.size(); i < amb_d + 1; ++i) {
-	omega[omega.size() - 1].push_back(i);
-      }
-      Simplex_handle init_s(y, omega);
-      Eigen::VectorXd barycenter = triangulation.barycenter(init_s);
-      out_simplex_map.emplace(std::make_pair(init_s,
-					     Constraint_set_intersection_pair(init_constraint_set, p)));
-      queue.emplace(init_s);
-      Eigen::VectorXd p_shift = p - barycenter;
-      
     }
     
-
-    // while (!queue.empty()) {
-    //   Simplex_handle s = queue.front();
-    //   queue.pop();
-    //   for (auto cof: s.coface_range(cod_d+1)) {
-    // 	for (auto face: cof.face_range(cod_d)) {
-    // 	  Query_result<Simplex_handle> qr = oracle.intersects(face, triangulation);
-    // 	  if (qr.success &&
-    // 	      out_simplex_map.emplace(std::make_pair(face, qr.intersection)).second)
-    // 	    queue.emplace(face);
-    // 	}
-    //   }
-    // }
   }
 
 //   /**

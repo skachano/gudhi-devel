@@ -15,8 +15,8 @@
 
 #include <Eigen/Dense>
 
+#include <gudhi/Functions/Function.h>
 #include <gudhi/Permutahedral_representation/face_from_indices.h>
-#include <gudhi/Functions/Constant_function.h>
 #include <gudhi/Functions/PL_approximation.h>
 #include <gudhi/Query_result.h>
 
@@ -37,11 +37,7 @@ namespace coxeter_triangulation {
  *
  *  \ingroup coxeter_triangulation
  */
-template<class Function_,
-	 class... Constraint_functions_>
 class Implicit_manifold_intersection_oracle {
-
-  typedef std::tuple<Constraint_functions_...> Constraint_function_tuple;
 
   /* Computes the affine coordinates of the intersection point of the implicit manifold
    * and the affine hull of the simplex. */
@@ -62,12 +58,13 @@ class Implicit_manifold_intersection_oracle {
       matrix(0, i) = 1;
     std::size_t j = 0;
     for (auto v: simplex.vertex_range()) {
-      Eigen::VectorXd v_coords = function_(triangulation.cartesian_coordinates(v));
+      Eigen::VectorXd v_coords = (*function_)(triangulation.cartesian_coordinates(v));
       std::size_t i = 1;
       for (; i < cod_d + 1; ++i)
 	matrix(i, j) = v_coords(i-1);
-      for (std::size_t& I: constraint_set) {
-	Eigen::VectorXd bv_coords = constraint_function<I>()(triangulation.cartesian_coordinates(v));
+      for (std::size_t I: constraint_set) {
+	Eigen::VectorXd v_cart = triangulation.cartesian_coordinates(v);
+	Eigen::VectorXd bv_coords = (*constraint_functions_.at(I))(v_cart);
 	matrix(i++, j) = bv_coords(0);
       }
       j++;
@@ -106,35 +103,16 @@ class Implicit_manifold_intersection_oracle {
     return QR({intersection, true});
   }
 
-  /* Get which constraints are saturated by the given point */
-  template <class Constraint_set, std::size_t I = 0, typename... T>
-  inline typename std::enable_if<I == sizeof... (T), void>::type
-  get_constraints(const std::tuple<T...>& tuple,
-		  const Eigen::VectorXd& p,
-		  Constraint_set& constraint_set) const {
-  }
-
-  template <class Constraint_set, std::size_t I = 0, typename... T>
-  inline typename std::enable_if<I != sizeof... (T), void>::type
-  get_constraints(const std::tuple<T...>& tuple,
-		  const Eigen::VectorXd& p,
-		  Constraint_set& constraint_set) const {
-    const auto& f = std::get<I>(tuple);
-    if (f(p)(0) == 0)
-      constraint_set.insert(I);
-    get_constraints<Constraint_set, I+1, T...>(tuple, p, constraint_set);
-  }
-
 public:
 
   /** \brief Ambient dimension of the implicit manifold. */
   std::size_t amb_d() const {
-    return function_.amb_d();
+    return function_->amb_d();
   }
   
   /** \brief Codimension of the implicit manifold. */
   std::size_t cod_d() const {
-    return function_.cod_d();
+    return function_->cod_d();
   }
 
   /** \brief Intersection query with the manifold.
@@ -187,40 +165,24 @@ public:
 		      const Constraint_set& constraint_set,
 		      const Triangulation& triangulation) const {
     for (const std::size_t& I: constraint_set) {
-      Eigen::VectorXd pl_p = make_pl_approximation(constraint_function<I>(), triangulation)(p);
+      Eigen::VectorXd pl_p = make_pl_approximation(*constraint_functions_.at(I), triangulation)(p);
       if (pl_p(0) > 0) 
 	return false;
     }
     return true;
   }
 
-  /* \brief Writes in the constraint set all indices of functions that are saturated
-   *  by a given point.
-   * @param[in] p The input point.
-   * @param[out] constraint_set The output constraint_set.
-   */
-  template <class Constraint_set>
-  void saturating_constraints(const Eigen::VectorXd& p, Constraint_set& constraint_set) const {
-    get_constraints(constraint_function_tuple_, p, constraint_set);
-  }
-  
   /** \brief Returns the function that defines the interior of the manifold. */
-  const Function_& function() const {
+  Function* function() const {
     return function_;
-  }
-
-    /** \brief Returns the number of constraints. */
-  std::size_t number_of_constraints() const {
-    return std::tuple_size<Constraint_functions_...>(constraint_function_tuple_);
   }
 
   /** \brief Returns the I-th constraint function for a given I. 
    *  @param[in] I Template parameter that represents the index of the constraint function
    *   starting from 0.
    */
-  template <std::size_t I>
-  const typename std::tuple_element<I, Constraint_function_tuple>::type& constraint_function() const {
-    return std::get<I>(constraint_function_tuple_);
+  const std::vector<Function*>& constraint_functions() const {
+    return constraint_functions_;
   }
 
   /** \brief Constructs an intersection oracle for an implicit manifold potentially 
@@ -231,13 +193,18 @@ public:
    *  @param[in] constraint_functions The input constraint functions that can be used to define an implicit
    *   manifold with boundary and corners.
    */
-  Implicit_manifold_intersection_oracle(const Function_& function,
-					const Constraint_functions_&... constraint_functions)
-    : function_(function), constraint_function_tuple_(std::make_tuple(constraint_functions...)) {}
-  
+  template <class Function_,
+	    class Function_ptr_range>
+  Implicit_manifold_intersection_oracle(Function_* function,
+				        Function_ptr_range& constr_function_range)
+    : function_(function) {
+    for (auto f_ptr: constr_function_range)
+      constraint_functions_.push_back(f_ptr);
+  }
+
 private:
-  Function_ function_;
-  Constraint_function_tuple constraint_function_tuple_;
+  Function* function_;
+  std::vector<Function*> constraint_functions_;
 };
 
 /** \brief Static constructor of an intersection oracle from a function and constraints.
@@ -249,14 +216,12 @@ private:
  *
  *  \ingroup coxeter_triangulation
  */
-template<class Function_,
-	 class... Constraint_functions_>
-Implicit_manifold_intersection_oracle<Function_, Constraint_functions_...>
-make_oracle(const Function_& function,
-	    const Constraint_functions_&... constraint_functions){
-  return Implicit_manifold_intersection_oracle<Function_,
-					       Constraint_functions_...>(function,
-									 constraint_functions...);
+template <class Function_,
+	  class Function_ptr_range>
+Implicit_manifold_intersection_oracle
+make_oracle(Function_* function,
+	    Function_ptr_range& constr_function_range) {
+  return Implicit_manifold_intersection_oracle(function, constr_function_range);
 }
 
 } // namespace coxeter_triangulation 

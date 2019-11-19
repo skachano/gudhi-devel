@@ -33,16 +33,24 @@ int main(int argc, char** argv) {
 
   // Computing the seed of the function fun_flat_torus
   Eigen::VectorXd seed = fun_flat_torus_rotated.seed();    
-  
+
   // Defining a domain function that defines the boundary, which is a hyperplane passing by the origin and orthogonal to x.
   Eigen::MatrixXd normal_matrix = Eigen::MatrixXd::Zero(4, 1);
   for (std::size_t i = 0; i < 4; i++)
     normal_matrix(i,0) = -seed(i);
   Function_affine_plane_in_Rd fun_bound(normal_matrix, -seed/2);
-    
-  // Defining the intersection oracle
-  auto oracle = make_oracle(fun_flat_torus_rotated, fun_bound);
 
+  // Vector that consists of the boundary-defining functions
+  std::vector<Function*> constraint_functions_;
+  constraint_functions_.push_back(&fun_bound);
+  
+  // Defining the intersection oracle
+  auto oracle = make_oracle(&fun_flat_torus_rotated, constraint_functions_);
+  Function* fun = oracle.function();
+  std::cout << fun->amb_d() << " " << fun->cod_d() << "\n" << fun->seed() << "\n";
+  fun = oracle.constraint_functions().at(0);
+  std::cout << fun->amb_d() << " " << fun->cod_d() << "\n" << fun->seed() << "\n";
+  
   // Define a Coxeter triangulation scaled by a factor lambda.
   // The triangulation is translated by a random vector to avoid violating the genericity hypothesis.
   double lambda = 0.2;
@@ -53,8 +61,7 @@ int main(int argc, char** argv) {
   // Manifold tracing algorithm
   using MT = Manifold_tracing<Coxeter_triangulation<> >;
   using Out_simplex_map = typename MT::Out_simplex_map;
-  std::vector<Eigen::VectorXd> seed_points(1, seed);
   Out_simplex_map out_simplex_map;
-  manifold_tracing_algorithm(seed_points, cox_tr, oracle, out_simplex_map);
+  manifold_tracing_algorithm(seed, cox_tr, oracle, out_simplex_map);
   
 }

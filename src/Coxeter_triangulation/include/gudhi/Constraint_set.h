@@ -17,7 +17,7 @@ class Constraint_set {
 
 public:
 
-  typedef std::set<std::size_t>::iterator iterator;
+  typedef std::set<std::size_t>::const_iterator iterator;
   
   void insert(std::size_t i) {
     set_.insert(i);
@@ -27,27 +27,27 @@ public:
     set_.erase(i);
   }
   
-  Constraint_set with(std::size_t i) {
+  Constraint_set with(std::size_t i) const {
     Constraint_set result = *this;
     result.insert(i);
     return result;
   }
 
-  Constraint_set without(std::size_t i) {
+  Constraint_set without(std::size_t i) const {
     Constraint_set result = *this;
     result.erase(i);
     return result;
   }
 
-  iterator begin() {
+  iterator begin() const {
     return set_.begin();
   }
 
-  iterator end() {
+  iterator end() const {
     return set_.end();
   }
 
-  std::size_t size() {
+  std::size_t size() const {
     return set_.size();
   }
   
