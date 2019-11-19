@@ -112,70 +112,17 @@ private:
     }
   }
   
-//   void construct_complex_(const Out_simplex_map_& out_simplex_map) {
-// #ifdef GUDHI_COX_OUTPUT_TO_HTML
-//     cc_interior_summary_lists.resize(interior_simplex_cell_maps_.size());
-//     cc_interior_prejoin_lists.resize(interior_simplex_cell_maps_.size());
-//     cc_interior_detail_lists.resize(interior_simplex_cell_maps_.size());
-// #endif    
-//     for (auto& os_pair: out_simplex_map) {
-//       const Simplex_handle& simplex = os_pair.first;
-//       const Eigen::VectorXd& point = os_pair.second;
-//       Hasse_cell* new_cell = insert_cell(simplex, 0, false);
-//       cell_point_map_.emplace(std::make_pair(new_cell, point));
-//     }
-//     for (std::size_t cell_d = 1;
-// 	 cell_d < interior_simplex_cell_maps_.size() &&
-// 	   !interior_simplex_cell_maps_[cell_d - 1].empty();
-// 	 ++cell_d) {
-//       expand_level(cell_d);
-//     }
-//   }
-  
-//   void construct_complex_(const Out_simplex_map_& interior_simplex_map,
-// 			  const Out_simplex_map_& boundary_simplex_map) {
-// #ifdef GUDHI_COX_OUTPUT_TO_HTML
-//     cc_interior_summary_lists.resize(interior_simplex_cell_maps_.size());
-//     cc_interior_prejoin_lists.resize(interior_simplex_cell_maps_.size());
-//     cc_interior_detail_lists.resize(interior_simplex_cell_maps_.size());
-//     cc_boundary_summary_lists.resize(boundary_simplex_cell_maps_.size());
-//     cc_boundary_prejoin_lists.resize(boundary_simplex_cell_maps_.size());
-//     cc_boundary_detail_lists.resize(boundary_simplex_cell_maps_.size());
-// #endif    
-//     for (auto& os_pair: boundary_simplex_map) {
-//       const Simplex_handle& simplex = os_pair.first;
-//       const Eigen::VectorXd& point = os_pair.second;
-//       Hasse_cell* new_cell = insert_cell(simplex, 0, true);
-//       cell_point_map_.emplace(std::make_pair(new_cell, point));
-//     }
-//     for (auto& os_pair: interior_simplex_map) {
-//       const Simplex_handle& simplex = os_pair.first;
-//       const Eigen::VectorXd& point = os_pair.second;
-//       Hasse_cell* new_cell = insert_cell(simplex, 0, false);
-//       cell_point_map_.emplace(std::make_pair(new_cell, point));
-//     }
-// #ifdef GUDHI_COX_OUTPUT_TO_HTML
-//     for (const auto& sc_pair: interior_simplex_cell_maps_[0])
-//       cc_interior_summary_lists[0].push_back(CC_summary_info(sc_pair));
-//     for (const auto& sc_pair: boundary_simplex_cell_maps_[0])
-//       cc_boundary_summary_lists[0].push_back(CC_summary_info(sc_pair));
-// #endif        
-
-//     for (std::size_t cell_d = 1;
-// 	 cell_d < interior_simplex_cell_maps_.size() &&
-// 	   !interior_simplex_cell_maps_[cell_d - 1].empty();
-// 	 ++cell_d) {
-//       expand_level(cell_d);
-      
-// #ifdef GUDHI_COX_OUTPUT_TO_HTML
-//       for (const auto& sc_pair: interior_simplex_cell_maps_[cell_d])
-// 	cc_interior_summary_lists[cell_d].push_back(CC_summary_info(sc_pair));
-//       if (cell_d < boundary_simplex_cell_maps_.size())
-// 	for (const auto& sc_pair: boundary_simplex_cell_maps_[cell_d])
-// 	  cc_boundary_summary_lists[cell_d].push_back(CC_summary_info(sc_pair));
-// #endif
-//     }
-//   }
+  void construct_complex_(const Out_simplex_map_& out_simplex_map) {
+    for (auto& os_pair: out_simplex_map) {
+      const Simplex_handle& simplex = os_pair.first.first;
+      const Constraint_set& constr_set = os_pair.first.second;
+      const Eigen::VectorXd& point = os_pair.second;
+      Hasse_cell* new_cell = insert_cell(simplex, constr_set, 0);
+      cell_point_map_.emplace(std::make_pair(new_cell, point));
+    }
+    for (std::size_t cell_d = 1; cell_d < simplex_cell_maps_.size(); ++cell_d)
+      expand_level(cell_d);
+  }
   
 public:  
   
