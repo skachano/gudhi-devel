@@ -113,6 +113,12 @@ private:
   }
   
   void construct_complex_(const Out_simplex_map_& out_simplex_map) {
+    if (!out_simplex_map.empty()) {
+      const auto& pair = out_simplex_map.begin()->first;
+      const Simplex_handle& simplex = pair.first;
+      const Constraint_set& constr_set = pair.second;      
+      cod_d_ = simplex.dimension() - constr_set.size();
+    }
     for (auto& os_pair: out_simplex_map) {
       const Simplex_handle& simplex = os_pair.first.first;
       const Constraint_set& constr_set = os_pair.first.second;
@@ -126,149 +132,80 @@ private:
   
 public:  
   
-//   /**
-//    * \brief Constructs the the cell complex that approximates an \f$m\f$-dimensional manifold
-//    *  without boundary embedded in the \f$ d \f$-dimensional Euclidean space
-//    *  from the output of the class Gudhi::Manifold_tracing.
-//    *
-//    * \param[in] out_simplex_map A map from simplices of dimension \f$(d-m)\f$ 
-//    * in the ambient triangulation that intersect the relative interior of the manifold 
-//    * to the intersection points.
-//    */
-//   void construct_complex(const Out_simplex_map_& out_simplex_map) {
-//     interior_simplex_cell_maps_.resize(intr_d_ + 1);
-//     if (!out_simplex_map.empty())
-//       cod_d_ = out_simplex_map.begin()->first.dimension();
-//     construct_complex_(out_simplex_map);
-//   }
+  /**
+   * \brief Constructs the the cell complex that approximates an \f$m\f$-dimensional manifold
+   *  without boundary embedded in the \f$ d \f$-dimensional Euclidean space
+   *  from the output of the class Gudhi::Manifold_tracing.
+   *
+   * \param[in] out_simplex_map A map from simplices of dimension \f$(d-m)\f$ 
+   * in the ambient triangulation that intersect the relative interior of the manifold 
+   * to the intersection points.
+   */
+  void construct_complex(const Out_simplex_map_& out_simplex_map) {
+    simplex_cell_maps_.resize(intr_d_ + 1);
+    construct_complex_(out_simplex_map);
+  }
   
-//   /**
-//    * \brief Constructs the skeleton of the cell complex that approximates
-//    *  an \f$m\f$-dimensional manifold without boundary embedded 
-//    *  in the \f$d\f$-dimensional Euclidean space
-//    *  up to a limit dimension from the output of the class Gudhi::Manifold_tracing.
-//    *
-//    * \param[in] out_simplex_map A map from simplices of dimension \f$(d-m)\f$ 
-//    * in the ambient triangulation that intersect the relative interior of the manifold 
-//    * to the intersection points.
-//    * \param[in] limit_dimension The dimension of the constructed skeleton.
-//    */
-//   void construct_complex(const Out_simplex_map_& out_simplex_map,
-// 			 std::size_t limit_dimension) {
-//     interior_simplex_cell_maps_.resize(limit_dimension + 1);
-//     if (!out_simplex_map.empty())
-//       cod_d_ = out_simplex_map.begin()->first.dimension();
-//     construct_complex_(out_simplex_map);
-//   }
+  /**
+   * \brief Constructs the skeleton of the cell complex that approximates
+   *  an \f$m\f$-dimensional manifold without boundary embedded 
+   *  in the \f$d\f$-dimensional Euclidean space
+   *  up to a limit dimension from the output of the class Gudhi::Manifold_tracing.
+   *
+   * \param[in] out_simplex_map A map from simplices of dimension \f$(d-m)\f$ 
+   * in the ambient triangulation that intersect the relative interior of the manifold 
+   * to the intersection points.
+   * \param[in] limit_dimension The dimension of the constructed skeleton.
+   */
+  void construct_complex(const Out_simplex_map_& out_simplex_map,
+			 std::size_t limit_dimension) {
+    simplex_cell_maps_.resize(limit_dimension + 1);
+    construct_complex_(out_simplex_map);
+  }
 
-//   /**
-//    * \brief Constructs the the cell complex that approximates an \f$m\f$-dimensional manifold
-//    *  with boundary embedded in the \f$ d \f$-dimensional Euclidean space
-//    *  from the output of the class Gudhi::Manifold_tracing.
-//    *
-//    * \param[in] interior_simplex_map A map from simplices of dimension \f$(d-m)\f$ 
-//    * in the ambient triangulation that intersect the relative interior of the manifold 
-//    * to the intersection points.
-//    * \param[in] boundary_simplex_map A map from simplices of dimension \f$(d-m+1)\f$ 
-//    * in the ambient triangulation that intersect the boundary of the manifold 
-//    * to the intersection points.
-//    */
-//   void construct_complex(const Out_simplex_map_& interior_simplex_map,
-// 			 const Out_simplex_map_& boundary_simplex_map) {
-//     interior_simplex_cell_maps_.resize(intr_d_ + 1);
-//     boundary_simplex_cell_maps_.resize(intr_d_);
-//     if (!interior_simplex_map.empty())
-//       cod_d_ = interior_simplex_map.begin()->first.dimension();
-//     construct_complex_(interior_simplex_map, boundary_simplex_map);
-//   }
+  /**
+   * \brief Returns the dimension of the cell complex.
+   */
+  std::size_t intrinsic_dimension() const {
+    return intr_d_;
+  }
 
-//   /**
-//    * \brief Constructs the skeleton of the cell complex that approximates
-//    *  an \f$m\f$-dimensional manifold with boundary embedded 
-//    *  in the \f$d\f$-dimensional Euclidean space
-//    *  up to a limit dimension from the output of the class Gudhi::Manifold_tracing.
-//    *
-//    * \param[in] interior_simplex_map A map from simplices of dimension \f$(d-m)\f$ 
-//    * in the ambient triangulation that intersect the relative interior of the manifold 
-//    * to the intersection points.
-//    * \param[in] boundary_simplex_map A map from simplices of dimension \f$(d-m+1)\f$ 
-//    * in the ambient triangulation that intersect the boundary of the manifold 
-//    * to the intersection points.
-//    * \param[in] limit_dimension The dimension of the constructed skeleton.
-//    */
-//   void construct_complex(const Out_simplex_map_& interior_simplex_map,
-// 			 const Out_simplex_map_& boundary_simplex_map,
-// 			 std::size_t limit_dimension) {
-//     interior_simplex_cell_maps_.resize(limit_dimension + 1);
-//     boundary_simplex_cell_maps_.resize(limit_dimension);
-//     if (!interior_simplex_map.empty())
-//       cod_d_ = interior_simplex_map.begin()->first.dimension();
-//     construct_complex_(interior_simplex_map, boundary_simplex_map);
-//   }
-
-//   /**
-//    * \brief Returns the dimension of the cell complex.
-//    */
-//   std::size_t intrinsic_dimension() const {
-//     return intr_d_;
-//   }
-
-//   /**
-//    * \brief Returns a vector of maps from the cells of various dimensions in the interior
-//    *  of the cell complex of type Gudhi::Hasse_cell to the permutahedral representations 
-//    *  of the corresponding simplices in the ambient triangulation.
-//    */
-//   const Simplex_cell_maps& interior_simplex_cell_maps() const {
-//     return interior_simplex_cell_maps_;
-//   }
-
-//   /**
-//    * \brief Returns a vector of maps from the cells of various dimensions on the boundary
-//    *  of the cell complex of type Gudhi::Hasse_cell to the permutahedral representations 
-//    *  of the corresponding simplices in the ambient triangulation.
-//    */
-//   const Simplex_cell_maps& boundary_simplex_cell_maps() const {
-//     return boundary_simplex_cell_maps_;
-//   }
+  /**
+   * \brief Returns a vector of maps from the cells of various dimensions in the interior
+   *  of the cell complex of type Gudhi::Hasse_cell to the permutahedral representations 
+   *  of the corresponding simplices in the ambient triangulation.
+   */
+  const Simplex_cell_maps& simplex_cell_maps() const {
+    return simplex_cell_maps_;
+  }
   
-//   /**
-//    * \brief Returns a map from the cells of a given dimension in the interior 
-//    *  of the cell complex of type Gudhi::Hasse_cell to the permutahedral representations 
-//    *  of the corresponding simplices in the ambient triangulation.
-//    *
-//    * \param[in] cell_d The dimension of the cells.
-//    */
-//   const Simplex_cell_map& interior_simplex_cell_map(std::size_t cell_d) const {
-//     return interior_simplex_cell_maps_[cell_d];
-//   }
+  /**
+   * \brief Returns a map from the cells of a given dimension in the interior 
+   *  of the cell complex of type Gudhi::Hasse_cell to the permutahedral representations 
+   *  of the corresponding simplices in the ambient triangulation.
+   *
+   * \param[in] cell_d The dimension of the cells.
+   */
+  const Simplex_cell_map& simplex_cell_map(std::size_t cell_d) const {
+    return simplex_cell_maps_[cell_d];
+  }
 
-//   /**
-//    * \brief Returns a map from the cells of a given dimension on the boundary 
-//    *  of the cell complex of type Gudhi::Hasse_cell to the permutahedral representations 
-//    *  of the corresponding simplices in the ambient triangulation.
-//    *
-//    * \param[in] cell_d The dimension of the cells.
-//    */
-//   const Simplex_cell_map& boundary_simplex_cell_map(std::size_t cell_d) const {
-//     return boundary_simplex_cell_maps_[cell_d];
-//   }
+  /**
+   * \brief Returns a map from the cells in the cell complex of type Gudhi::Hasse_cell
+   *  to the permutahedral representations of the corresponding simplices in the 
+   *  ambient triangulation.
+   */
+  const Cell_simplex_map& cell_simplex_map() const {
+    return cell_simplex_map_;
+  }
 
-//   /**
-//    * \brief Returns a map from the cells in the cell complex of type Gudhi::Hasse_cell
-//    *  to the permutahedral representations of the corresponding simplices in the 
-//    *  ambient triangulation.
-//    */
-//   const Cell_simplex_map& cell_simplex_map() const {
-//     return cell_simplex_map_;
-//   }
-
-//   /**
-//    * \brief Returns a map from the vertex cells in the cell complex of type Gudhi::Hasse_cell
-//    *  to their Cartesian coordinates.
-//    */
-//   const Cell_point_map& cell_point_map() const {
-//     return cell_point_map_;
-//   }
+  /**
+   * \brief Returns a map from the vertex cells in the cell complex of type Gudhi::Hasse_cell
+   *  to their Cartesian coordinates.
+   */
+  const Cell_point_map& cell_point_map() const {
+    return cell_point_map_;
+  }
 
   /**
    * \brief Conxtructor for the class Cell_complex.
