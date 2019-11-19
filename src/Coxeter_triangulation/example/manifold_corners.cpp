@@ -82,4 +82,5 @@ int main(int argc, char** argv) {
   for (std::size_t i = 0; i < dim_lists.size(); ++i)
     std::cout << i << ": " << dim_lists[i] << "\n";
   Cell_complex<Out_simplex_map> cc(fun->amb_d() - fun->cod_d());
+  cc.construct_complex(out_simplex_map);
 }

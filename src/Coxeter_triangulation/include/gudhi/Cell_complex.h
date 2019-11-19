@@ -47,8 +47,19 @@ public:
    */
   typedef typename Out_simplex_map_::key_type Simplex_handle;
 
-  typedef typename Out_simplex_map_::value_type::first_type Constraint_set;
+  typedef typename Out_simplex_map_::mapped_type::first_type Constraint_set;
 
+private:
+  typedef typename Out_simplex_map_::hasher Simplex_hash;
+  struct Pair_hash {
+    typedef std::pair<Simplex_handle, Constraint_set> argument_type;
+    typedef std::size_t result_type;
+    result_type operator()(const argument_type& s) const noexcept {
+      return Simplex_hash()(s.first);
+    }
+  };
+  
+public:
   /** \brief Type of a cell in the cell complex. 
    *  Always is Gudhi::Hasse_cell from the Hasse diagram module.
    *  The additional information is the boolean that is true if and only if the cell lies
@@ -59,8 +70,9 @@ public:
    *  ambient triangulation to the corresponding cells in the cell complex of some
    *  specific dimension.
    */
-  typedef std::map<std::pair<Simplex_handle, Constraint_set>,
-		   Hasse_cell*> Simplex_cell_map;
+  typedef std::unordered_map<std::pair<Simplex_handle, Constraint_set>,
+			     Hasse_cell*,
+			     Pair_hash> Simplex_cell_map;
   /** \brief Type of a vector of maps from permutahedral representations of simplices in the
    *  ambient triangulation to the corresponding cells in the cell complex of various dimensions.
    */
@@ -114,15 +126,14 @@ private:
   
   void construct_complex_(const Out_simplex_map_& out_simplex_map) {
     if (!out_simplex_map.empty()) {
-      const auto& pair = out_simplex_map.begin()->first;
-      const Simplex_handle& simplex = pair.first;
-      const Constraint_set& constr_set = pair.second;      
+      const Simplex_handle& simplex = out_simplex_map.begin()->first;
+      const Constraint_set& constr_set = out_simplex_map.begin()->second.first;
       cod_d_ = simplex.dimension() - constr_set.size();
     }
     for (auto& os_pair: out_simplex_map) {
-      const Simplex_handle& simplex = os_pair.first.first;
-      const Constraint_set& constr_set = os_pair.first.second;
-      const Eigen::VectorXd& point = os_pair.second;
+      const Simplex_handle& simplex = os_pair.first;
+      const Constraint_set& constr_set = os_pair.second.first;
+      const Eigen::VectorXd& point = os_pair.second.second;
       Hasse_cell* new_cell = insert_cell(simplex, constr_set, 0);
       cell_point_map_.emplace(std::make_pair(new_cell, point));
     }
