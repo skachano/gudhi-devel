@@ -94,36 +94,23 @@ private:
     return map_it->second;
   }
 
-//   void expand_level(std::size_t cell_d) {
-//     bool is_manifold_with_boundary = boundary_simplex_cell_maps_.size() > 0;
-//     for (auto& sc_pair: interior_simplex_cell_maps_[cell_d - 1]) {
-//       const Simplex_handle& simplex = sc_pair.first;
-//       Hasse_cell* cell = sc_pair.second;
-//       for (Simplex_handle coface: simplex.coface_range(cod_d_ + cell_d)) {
-// 	Hasse_cell* new_cell = insert_cell(coface, cell_d, false);
-// 	new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
-//       }
-//     }
-    
-//     if (is_manifold_with_boundary) {
-//       for (auto& sc_pair: boundary_simplex_cell_maps_[cell_d - 1]) {
-// 	const Simplex_handle& simplex = sc_pair.first;
-// 	Hasse_cell* cell = sc_pair.second;
-// 	if (cell_d != intr_d_)
-// 	  for (Simplex_handle coface: simplex.coface_range(cod_d_ + cell_d + 1)) {
-// 	    Hasse_cell* new_cell = insert_cell(coface, cell_d, true);
-// 	    new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
-// 	  }
-// 	auto map_it = interior_simplex_cell_maps_[cell_d].find(simplex);
-// 	if (map_it == interior_simplex_cell_maps_[cell_d].end())
-// 	  std::cerr << "Cell_complex::expand_level error: A boundary cell does not have an interior counterpart.\n";
-// 	else {
-// 	  Hasse_cell* i_cell = map_it->second;
-// 	  i_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
-// 	}
-//       }
-//     }
-//   }
+  void expand_level(std::size_t cell_d) {
+    for (auto& sc_pair: simplex_cell_maps_[cell_d - 1]) {
+      const Simplex_handle& simplex = sc_pair.first.first;
+      const Constraint_set& constr_set = sc_pair.first.second;
+      Hasse_cell* cell = sc_pair.second;
+      for (Simplex_handle cofacet: simplex.cofacet_range()) {
+	Hasse_cell* new_cell = insert_cell(cofacet, constr_set, cell_d);
+	new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
+      }
+      for (std::size_t I: constr_set) {
+	Constraint_set new_constr_set(constr_set);
+        new_constr_set.erase(I);
+	Hasse_cell* new_cell = insert_cell(simplex, new_constr_set, cell_d);
+	new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
+      }
+    }
+  }
   
 //   void construct_complex_(const Out_simplex_map_& out_simplex_map) {
 // #ifdef GUDHI_COX_OUTPUT_TO_HTML
