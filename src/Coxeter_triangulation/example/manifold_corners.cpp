@@ -7,7 +7,7 @@
 #include <gudhi/Constraint_set.h>
 #include <gudhi/Implicit_manifold_intersection_oracle.h>
 #include <gudhi/Manifold_tracing.h>
-#include <gudhi/Cell_complex_corners.h>
+#include <gudhi/Cell_complex.h>
 #include <gudhi/Functions/random_orthogonal_matrix.h>
 #include <gudhi/Functions/Linear_transformation.h>
 #include <gudhi/Functions/Cartesian_product.h>
@@ -81,4 +81,5 @@ int main(int argc, char** argv) {
   }
   for (std::size_t i = 0; i < dim_lists.size(); ++i)
     std::cout << i << ": " << dim_lists[i] << "\n";
+  Cell_complex<Out_simplex_map> cc(fun->amb_d() - fun->cod_d());
 }
