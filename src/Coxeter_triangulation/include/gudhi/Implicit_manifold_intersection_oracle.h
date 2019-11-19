@@ -145,6 +145,7 @@ public:
 					  const Constraint_set& constraint_set,
 					  const Triangulation& triangulation) const {
     Eigen::VectorXd lambda = compute_lambda(simplex, constraint_set, triangulation);
+    // std::cout << "Simplex: " << simplex << ", lambda:\n" << lambda << "\n\n";
     return intersection_result(lambda, simplex, triangulation);
   }
   

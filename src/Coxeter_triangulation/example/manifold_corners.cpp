@@ -63,5 +63,22 @@ int main(int argc, char** argv) {
   using Out_simplex_map = typename MT::Out_simplex_map;
   Out_simplex_map out_simplex_map;
   manifold_tracing_algorithm(seed, cox_tr, oracle, out_simplex_map);
-  
+
+  std::cout << "Output size = " << out_simplex_map.size() << "\n";
+  // for (const auto& o_pair: out_simplex_map) {
+  //   std::cout << o_pair.first << ": ";
+  //   std::cout << "{";
+  //   auto o_it = o_pair.second.first.begin();
+  //   if (!o_pair.second.first.empty())
+  //     std::cout << *o_it++;
+  //   while (o_it != o_pair.second.first.end())
+  //     std::cout << ", " << *o_it++;
+  //   std::cout << "},\n" << o_pair.second.second << "\n";
+  // }
+  std::vector<std::size_t> dim_lists(fun->amb_d() + 1);
+  for (const auto& o_pair: out_simplex_map) {
+    dim_lists[o_pair.first.dimension()]++;
+  }
+  for (std::size_t i = 0; i < dim_lists.size(); ++i)
+    std::cout << i << ": " << dim_lists[i] << "\n";
 }

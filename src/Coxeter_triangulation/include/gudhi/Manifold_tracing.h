@@ -39,8 +39,7 @@ namespace coxeter_triangulation {
 template <class Triangulation_>
 class Manifold_tracing {
   
-  typedef typename Triangulation_::Simplex_handle Simplex_handle;
-  
+  typedef typename Triangulation_::Simplex_handle Simplex_handle;  
   struct Simplex_hash {
     typedef Simplex_handle argument_type;
     typedef std::size_t result_type;
@@ -51,24 +50,7 @@ class Manifold_tracing {
   
 public:
 
-  /** \brief A pair of a constraint set and an intersection point. */
-  struct Constraint_set_intersection_pair {
-    Constraint_set constraint_set;
-    Eigen::VectorXd intersection;
-
-    Constraint_set_intersection_pair(const Constraint_set& c_set, const Eigen::VectorXd& p)
-      : constraint_set(c_set), intersection(p) {};
-  };
-
-  /** \brief A pair of a simplex handle and a constraint set. */
-  struct Simplex_handle_constraint_set_pair {
-    Simplex_handle simplex_handle;
-    Constraint_set constraint_set;
-
-    Simplex_handle_constraint_set_pair(const Simplex_handle& s, const Constraint_set& c_set)
-      : simplex_handle(s), constraint_set(c_set) {};
-  };
-  
+  typedef std::unordered_set<std::size_t> Constraint_set;
   /** \brief Type of the output simplex map with keys of type Triangulation_::Simplex_handle
    *   and values of type Constraint_set_intersection_pair.
    *   This type should be used for the output in the method manifold_tracing_algorithm.
@@ -101,11 +83,12 @@ public:
    */
   template <class Intersection_oracle>
   void manifold_tracing_algorithm(const Eigen::VectorXd& seed_point,
-				  const Triangulation_& triangulation,
+				  Triangulation_& triangulation,
 				  const Intersection_oracle& oracle,
 				  Out_simplex_map& out_simplex_map) {
     std::size_t amb_d = oracle.amb_d();
     std::size_t cod_d = oracle.cod_d();
+    std::size_t num_constraints = oracle.constraint_functions().size();
     std::queue<std::pair<Simplex_handle, Constraint_set> > queue;
 
     Constraint_set init_constraint_set;
@@ -126,292 +109,63 @@ public:
   					   std::make_pair(init_constraint_set, seed_point)));
     queue.emplace(std::make_pair(init_s, init_constraint_set));
     Eigen::VectorXd p_shift = seed_point - barycenter;
+    triangulation.change_offset(triangulation.offset() + p_shift);
     
     while (!queue.empty()) {
       Simplex_handle s;
       Constraint_set constr;
       std::tie(s, constr) = queue.front();
       queue.pop();
-      for (auto cof: s.coface_range(cod_d+1)) {
-    	for (auto face: cof.face_range(cod_d)) {
-  	  Query_result<Simplex_handle> qr = oracle.intersects(face, constr, triangulation);
-  	  if (qr.success)
-  	    // && out_simplex_map.emplace(std::make_pair(face, qr.intersection)).second)
-  	    queue.emplace(std::make_pair(face, constr));
-    	}
-      }
+      if (s.dimension() != amb_d)
+	for (auto cof: s.cofacet_range())
+	  for (auto face: cof.facet_range()) {
+	    Query_result<Simplex_handle> qr = oracle.intersects(face, constr, triangulation);
+	    if (qr.success) {
+	      Constraint_set face_constr(constr);
+	      std::size_t excess_constraints = 0;
+	      for (std::size_t I = 0; I < num_constraints; ++I)
+		if (constr.find(I) == constr.end() &&
+		    (*oracle.constraint_functions().at(I))(qr.intersection)(0) >= 0) {
+		  face_constr.insert(I);
+		  if (++excess_constraints > 1)
+		    break;
+		}
+	      if (excess_constraints == 0 &&
+		  out_simplex_map.emplace(std::make_pair(face,
+							 std::make_pair(face_constr,
+									qr.intersection))).second)
+		queue.emplace(std::make_pair(face, constr));
+	      if (excess_constraints == 1) {
+		assert(face_constr.size() == constr.size() + 1);
+		Query_result<Simplex_handle> qrb = oracle.intersects(cof,
+								     face_constr,
+								     triangulation);
+		if (qrb.success &&
+		    out_simplex_map.emplace(std::make_pair(cof,
+							   std::make_pair(face_constr,
+									  qrb.intersection))).second)
+		  queue.emplace(std::make_pair(cof, face_constr));
+	      }
+	    }
+	  }
+      if (s.dimension() != cod_d) 
+	for (auto facet: s.facet_range())
+	  for (std::size_t I: constr) {
+	    Constraint_set facet_constr(constr);
+	    facet_constr.erase(I);
+	    Query_result<Simplex_handle> qr = oracle.intersects(facet,
+								facet_constr,
+								triangulation);
+	    if (qr.success &&
+		out_simplex_map.emplace(std::make_pair(facet,
+						       std::make_pair(facet_constr,
+								      qr.intersection))).second)
+	      queue.emplace(std::make_pair(facet, facet_constr));
+	  }
     }
     
   }
 
-//   /**
-//    * \brief Computes the set of k-simplices that intersect
-//    * the dimensional manifold given by an intersection oracle, where k
-//    * is the codimension of the manifold.
-//    * The computation is based on the seed propagation --- it starts at the 
-//    * given seed points and then propagates along the manifold.
-//    *
-//    * \tparam Point_range Range of points of type Eigen::VectorXd.
-//    * \tparam Intersection_oracle Intersection oracle that represents the manifold.
-//    *  Needs to be a model of the concept IntersectionOracle.
-//    *
-//    * \param[in] seed_points The range of points on the manifold from which 
-//    * the computation begins.
-//    * \param[in] triangulation The ambient triangulation.
-//    * \param[in] oracle The intersection oracle for the manifold.
-//    * The ambient dimension needs to match the dimension of the
-//    * triangulation.
-//    * \param[out] interior_simplex_map The output map, where the keys are k-simplices in
-//    * the input triangulation that intersect the relative interior of the input manifold  
-//    * and the mapped values are the intersection points.
-//    * \param[out] boundary_simplex_map The output map, where the keys are k-simplices in
-//    * the input triangulation that intersect the boundary of the input manifold  
-//    * and the mapped values are the intersection points.
-//    */
-//   template <class Point_range,
-// 	    class Intersection_oracle>
-//   void manifold_tracing_algorithm(const Point_range& seed_points,
-// 				  const Triangulation_& triangulation,
-// 				  const Intersection_oracle& oracle,
-// 				  Out_simplex_map& interior_simplex_map,
-// 				  Out_simplex_map& boundary_simplex_map) {
-//     std::size_t cod_d = oracle.cod_d();
-//     std::queue<Simplex_handle> queue;
-
-//     for (const auto& p: seed_points) {
-//       Simplex_handle full_simplex = triangulation.locate_point(p);
-//       for (Simplex_handle face: full_simplex.face_range(cod_d)) {
-// 	auto qr = oracle.intersects(face, triangulation);
-// #ifdef GUDHI_COX_OUTPUT_TO_HTML
-// 	mt_seed_inserted_list.push_back(MT_inserted_info(qr, face, false));
-// #endif	
-// 	if (qr.success) {
-// 	  if (oracle.lies_in_domain(qr.intersection, triangulation)) {
-// 	    if (interior_simplex_map.emplace(std::make_pair(face, qr.intersection)).second)
-// 	      queue.emplace(face);
-// 	  }
-// 	  else {
-// 	    for (Simplex_handle cof: face.coface_range(cod_d+1)) {
-// 	      auto qrb = oracle.intersects_boundary(cof, triangulation);
-// #ifdef GUDHI_COX_OUTPUT_TO_HTML
-// 	      mt_seed_inserted_list.push_back(MT_inserted_info(qrb, cof, true));
-// #endif	
-// 	      if (qrb.success)
-// 		boundary_simplex_map.emplace(cof, qrb.intersection);
-// 	    }
-// 	  }
-// 	  // break;
-// 	}
-//       }
-//     }
-    
-//     while (!queue.empty()) {
-//       Simplex_handle s = queue.front();
-//       queue.pop();
-//       for (auto cof: s.coface_range(cod_d+1)) {
-// 	for (auto face: cof.face_range(cod_d)) {
-// 	  auto qr = oracle.intersects(face, triangulation);
-// #ifdef GUDHI_COX_OUTPUT_TO_HTML
-// 	  mt_inserted_list.push_back(MT_inserted_info(qr, face, false));
-// #endif	
-// 	  if (qr.success) {
-// 	    if (oracle.lies_in_domain(qr.intersection, triangulation)) {
-// 	      if (interior_simplex_map.emplace(face, qr.intersection).second)
-// 		queue.emplace(face);
-// 	    }
-// 	    else {
-// 	      auto qrb = oracle.intersects_boundary(cof, triangulation);
-// #ifdef GUDHI_COX_OUTPUT_TO_HTML
-// 	      mt_inserted_list.push_back(MT_inserted_info(qrb, cof, true));
-// #endif	
-// 	      // assert (qrb.success); // always a success
-// 	      if (qrb.success)
-// 		boundary_simplex_map.emplace(cof, qrb.intersection);
-// 	    }
-// 	  }
-// 	}
-//       }
-//     }
-//   }
-
-//   template <class Point_range,
-// 	    class Intersection_oracle>
-//   void manifold_tracing_algorithm(const Point_range& seed_points,
-// 				  const Triangulation_& triangulation,
-// 				  const Intersection_oracle& oracle,
-// 				  Out_simplex_map& interior_simplex_map,
-// 				  Out_simplex_map& boundary1_simplex_map,
-// 				  Out_simplex_map& boundary2_simplex_map,
-// 				  Out_simplex_map& corner_simplex_map) {
-//     std::size_t cod_d = oracle.cod_d();
-//     std::queue<Simplex_handle> queue;
-
-//     for (const auto& p: seed_points) {
-//       Simplex_handle full_simplex = triangulation.locate_point(p);
-//       for (Simplex_handle face: full_simplex.face_range(cod_d)) {
-// 	auto qr = oracle.intersects(face, triangulation);
-// 	if (qr.success) {
-// 	  if (oracle.lies_in_domain1(qr.intersection, triangulation)) {
-// 	    if (oracle.lies_in_domain2(qr.intersection, triangulation)) {
-// 	      if (interior_simplex_map.emplace(std::make_pair(face, qr.intersection)).second)
-// 		queue.emplace(face);
-// 	    }
-// 	    else { // !oracle.lies_in_domain2(qr.intersection, triangulation)
-// 	      for (Simplex_handle cof: face.coface_range(cod_d+1)) {
-// 		auto qrb = oracle.intersects_boundary2(cof, triangulation);
-// 		if (qrb.success) {
-// 		  boundary2_simplex_map.emplace(cof, qrb.intersection);
-// 		  for (Simplex_handle big_cof: cof.cofacet_range()) {
-// 		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
-// 		    if (qrc.success)
-// 		      corner_simplex_map.emplace(big_cof, qrc.intersection);
-// 		    else // try to find another facet from another boundary
-// 		      for (Simplex_handle big_cof_fac: big_cof.facet_range())
-// 			if (boundary1_simplex_map.find(big_cof_fac) != boundary1_simplex_map.end())
-// 			  corner_simplex_map.emplace(big_cof, triangulation.barycenter(big_cof));
-// 		  }		    
-// 		}
-// 	      }
-// 	    }
-// 	  }
-// 	  else { // !oracle.lies_in_domain1(qr.intersection, triangulation)
-// 	    if (oracle.lies_in_domain2(qr.intersection, triangulation)) {
-// 	      for (Simplex_handle cof: face.coface_range(cod_d+1)) {
-// 		auto qrb = oracle.intersects_boundary1(cof, triangulation);
-// 		if (qrb.success) {
-// 		  boundary1_simplex_map.emplace(cof, qrb.intersection);
-// 		  for (Simplex_handle big_cof: cof.cofacet_range()) {
-// 		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
-// 		    if (qrc.success) 
-// 		      corner_simplex_map.emplace(big_cof, qrc.intersection);
-// 		    else // try to find another facet from another boundary
-// 		      for (Simplex_handle big_cof_fac: big_cof.facet_range())
-// 			if (boundary2_simplex_map.find(big_cof_fac) != boundary2_simplex_map.end())
-// 			  corner_simplex_map.emplace(big_cof, triangulation.barycenter(big_cof));
-// 		  }
-// 		}
-// 	      }
-// 	    }
-// 	    else { // !oracle.lies_in_domain2(qr.intersection, triangulation)
-// 	      for (Simplex_handle cof: face.coface_range(cod_d+1)) {
-// 		auto qrb1 = oracle.intersects_boundary1(cof, triangulation);
-// 		auto qrb2 = oracle.intersects_boundary2(cof, triangulation);
-// 		bool corners_around = false;
-// 		if (qrb1.success || qrb2.success) {
-// 		  for (Simplex_handle big_cof: cof.cofacet_range()) {
-// 		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
-// 		    if (qrc.success) {
-// 		      corner_simplex_map.emplace(big_cof, qrc.intersection);
-// 		      corners_around = true;
-// 		    }
-// 		  }
-// 		}
-// 		if (qrb1.success && qrb2.success) {
-// 		  bool qrb1_lies_inside = oracle.lies_in_domain2(qrb1.intersection, triangulation);
-// 		  bool qrb2_lies_inside = oracle.lies_in_domain1(qrb2.intersection, triangulation);
-// 		  if (qrb1_lies_inside && qrb2_lies_inside) {
-// 		    if (!corners_around)  // JD trick
-// 		      corner_simplex_map.emplace(cof, (qrb1.intersection + qrb2.intersection)/2);    
-// 		  }
-// 		  else if (!qrb1_lies_inside && qrb2_lies_inside)
-// 		    boundary2_simplex_map.emplace(cof, qrb2.intersection);
-// 		  else if (qrb1_lies_inside && !qrb2_lies_inside)
-// 		    boundary1_simplex_map.emplace(cof, qrb1.intersection);
-// 		}
-// 		else if (qrb1.success && !qrb2.success)
-// 		  boundary1_simplex_map.emplace(cof, qrb1.intersection);
-// 		else if (!qrb1.success && qrb2.success)
-// 		  boundary2_simplex_map.emplace(cof, qrb2.intersection);
-// 	      }
-// 	    }
-// 	  }
-// 	  // break;
-// 	}
-//       }
-//     }
-    
-//     while (!queue.empty()) {
-//       Simplex_handle s = queue.front();
-//       queue.pop();
-//       for (auto cof: s.coface_range(cod_d+1)) {
-// 	for (auto face: cof.face_range(cod_d)) {
-// 	  auto qr = oracle.intersects(face, triangulation);
-// 	  if (qr.success) {
-// 	    if (oracle.lies_in_domain1(qr.intersection, triangulation)) {
-// 	      if (oracle.lies_in_domain2(qr.intersection, triangulation)) {
-// 		if (interior_simplex_map.emplace(face, qr.intersection).second)
-// 		  queue.emplace(face);
-// 	      }
-// 	      else { // !oracle.lies_in_domain2(qr.intersection, triangulation)
-// 		auto qrb = oracle.intersects_boundary2(cof, triangulation);
-// 		if (qrb.success) {
-// 		  boundary2_simplex_map.emplace(cof, qrb.intersection);
-// 		  for (Simplex_handle big_cof: cof.cofacet_range()) {
-// 		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
-// 		    if (qrc.success) 
-// 		      corner_simplex_map.emplace(big_cof, qrc.intersection);
-// 		    else // try to find another facet from another boundary
-// 		      for (Simplex_handle big_cof_fac: big_cof.facet_range())
-// 			if (boundary1_simplex_map.find(big_cof_fac) != boundary1_simplex_map.end())
-// 			  corner_simplex_map.emplace(big_cof, triangulation.barycenter(big_cof));
-// 		  }
-// 		}		
-// 	      }
-// 	    }
-// 	    else { // !oracle.lies_in_domain1(qr.intersection, triangulation)
-// 	      if (oracle.lies_in_domain2(qr.intersection, triangulation)) {
-// 		auto qrb = oracle.intersects_boundary1(cof, triangulation);
-// 		if (qrb.success) {
-// 		  boundary1_simplex_map.emplace(cof, qrb.intersection);
-// 		  for (Simplex_handle big_cof: cof.cofacet_range()) {
-// 		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
-// 		    if (qrc.success) 
-// 		      corner_simplex_map.emplace(big_cof, qrc.intersection);		  
-// 		    else // try to find another facet from another boundary
-// 		      for (Simplex_handle big_cof_fac: big_cof.facet_range())
-// 			if (boundary2_simplex_map.find(big_cof_fac) != boundary2_simplex_map.end())
-// 			  corner_simplex_map.emplace(big_cof, triangulation.barycenter(big_cof));
-// 		  }
-// 		}
-// 	      }
-// 	      else { // !oracle.lies_in_domain2(qr.intersection, triangulation)
-// 		auto qrb1 = oracle.intersects_boundary1(cof, triangulation);
-// 		auto qrb2 = oracle.intersects_boundary2(cof, triangulation);
-// 		bool corners_around = false;
-// 		if (qrb1.success || qrb2.success) {
-// 		  for (Simplex_handle big_cof: cof.cofacet_range()) {
-// 		    auto qrc = oracle.intersects_corner(big_cof, triangulation);
-// 		    if (qrc.success) {
-// 		      corner_simplex_map.emplace(big_cof, qrc.intersection);
-// 		      corners_around = true;
-// 		    }
-// 		  }
-// 		}
-// 		if (qrb1.success && qrb2.success) {
-// 		  bool qrb1_lies_inside = oracle.lies_in_domain2(qrb1.intersection, triangulation);
-// 		  bool qrb2_lies_inside = oracle.lies_in_domain1(qrb2.intersection, triangulation);
-// 		  if (qrb1_lies_inside && qrb2_lies_inside) {
-// 		    if (!corners_around)  // JD trick
-// 		      corner_simplex_map.emplace(cof, (qrb1.intersection + qrb2.intersection)/2);    
-// 		  }
-// 		  else if (!qrb1_lies_inside && qrb2_lies_inside)
-// 		    boundary2_simplex_map.emplace(cof, qrb2.intersection);
-// 		  else if (qrb1_lies_inside && !qrb2_lies_inside)
-// 		    boundary1_simplex_map.emplace(cof, qrb1.intersection);
-// 		}
-// 		else if (qrb1.success && !qrb2.success)
-// 		  boundary1_simplex_map.emplace(cof, qrb1.intersection);
-// 		else if (!qrb1.success && qrb2.success)
-// 		  boundary2_simplex_map.emplace(cof, qrb2.intersection);		
-// 	      }
-// 	    }
-// 	  }
-// 	}
-//       }
-//     }
-//   }
-
-  
   /** \brief Empty constructor */
   Manifold_tracing() {}
   
@@ -449,7 +203,7 @@ template <class Point_range,
 	  class Intersection_oracle,
 	  class Out_simplex_map>
 void manifold_tracing_algorithm(const Point_range& seed_points,
-				const Triangulation& triangulation,
+			        Triangulation& triangulation,
 				const Intersection_oracle& oracle,
 				Out_simplex_map& out_simplex_map) {
   Manifold_tracing<Triangulation> mt;
@@ -458,74 +212,6 @@ void manifold_tracing_algorithm(const Point_range& seed_points,
 				oracle,
 				out_simplex_map);
 }
-
-// /**
-//  * \brief Static method for Manifold_tracing<Triangulation_>::manifold_tracing_algorithm
-//  * the dimensional manifold given by an intersection oracle, where k
-//  * is the codimension of the manifold.
-//  * The computation is based on the seed propagation --- it starts at the 
-//  * given seed points and then propagates along the manifold.
-//  *
-//  * \tparam Point_range Range of points of type Eigen::VectorXd.
-//  *  \tparam Triangulation_ The type of the ambient triangulation.
-//  *   Needs to be a model of the concept TriangulationForManifoldTracing.
-//  * \tparam Intersection_oracle Intersection oracle that represents the manifold.
-//  *  Needs to be a model of the concept IntersectionOracle.
-//  * \tparam Out_simplex_map Needs to be Manifold_tracing<Triangulation_>::Out_simplex_map.
-//  *
-//  * \param[in] seed_points The range of points on the manifold from which 
-//  * the computation begins.
-//  * \param[in] triangulation The ambient triangulation.
-//  * \param[in] oracle The intersection oracle for the manifold.
-//  * The ambient dimension needs to match the dimension of the
-//  * triangulation.
-//  * \param[out] interior_simplex_map The output map, where the keys are k-simplices in
-//  * the input triangulation that intersect the relative interior of the input manifold  
-//  * and the mapped values are the intersection points.
-//  * \param[out] boundary_simplex_map The output map, where the keys are k-simplices in
-//  * the input triangulation that intersect the boundary of the input manifold  
-//  * and the mapped values are the intersection points.
-//  *
-//  * \ingroup coxeter_triangulation
-//  */
-// template <class Point_range,
-// 	  class Triangulation,
-// 	  class Intersection_oracle,
-// 	  class Out_simplex_map>
-// void manifold_tracing_algorithm(const Point_range& seed_points,
-// 				const Triangulation& triangulation,
-// 				const Intersection_oracle& oracle,
-// 				Out_simplex_map& interior_simplex_map,
-// 				Out_simplex_map& boundary_simplex_map) {
-//   Manifold_tracing<Triangulation> mt;
-//   mt.manifold_tracing_algorithm(seed_points,
-// 				triangulation,
-// 				oracle,
-// 				interior_simplex_map,
-// 				boundary_simplex_map);
-// }
-
-// template <class Point_range,
-// 	  class Triangulation,
-// 	  class Intersection_oracle,
-// 	  class Out_simplex_map>
-// void manifold_tracing_algorithm(const Point_range& seed_points,
-// 				const Triangulation& triangulation,
-// 				const Intersection_oracle& oracle,
-// 				Out_simplex_map& interior_simplex_map,
-// 				Out_simplex_map& boundary1_simplex_map,
-// 				Out_simplex_map& boundary2_simplex_map,
-// 				Out_simplex_map& corner_simplex_map) {
-//   Manifold_tracing<Triangulation> mt;
-//   mt.manifold_tracing_algorithm(seed_points,
-// 				triangulation,
-// 				oracle,
-// 				interior_simplex_map,
-// 				boundary1_simplex_map,
-// 				boundary2_simplex_map,
-// 				corner_simplex_map);
-// }
-
 
 } // namespace coxeter_triangulation 
 
