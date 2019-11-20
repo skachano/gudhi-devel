@@ -157,6 +157,7 @@ public:
 								facet_constr,
 								triangulation);
 	    if (qr.success &&
+		(*oracle.constraint_functions().at(I))(qr.intersection)(0) < 0 &&
 		out_simplex_map.emplace(std::make_pair(facet,
 						       std::make_pair(facet_constr,
 								      qr.intersection))).second)
