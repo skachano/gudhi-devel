@@ -100,7 +100,6 @@ private:
       hasse_cells_.push_back(new Hasse_cell(cell_d));
       Hasse_cell* new_cell = hasse_cells_.back();    
       simplex_cell_map.emplace(std::make_pair(pair, new_cell));
-      cell_simplex_map_.emplace(std::make_pair(new_cell, pair));
       return new_cell;
     }
     return map_it->second;
@@ -111,7 +110,8 @@ private:
       const Simplex_handle& simplex = sc_pair.first.first;
       const Constraint_set& constr_set = sc_pair.first.second;
       Hasse_cell* cell = sc_pair.second;
-      if (simplex.dimension() < simplex.vertex().size())
+      std::size_t amb_d = simplex.vertex().size();
+      if (simplex.dimension() < amb_d)
 	for (Simplex_handle cofacet: simplex.cofacet_range()) {
 	  Hasse_cell* new_cell = insert_cell(cofacet, constr_set, cell_d);
 	  new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
@@ -203,15 +203,6 @@ public:
   }
 
   /**
-   * \brief Returns a map from the cells in the cell complex of type Gudhi::Hasse_cell
-   *  to the permutahedral representations of the corresponding simplices in the 
-   *  ambient triangulation.
-   */
-  const Cell_simplex_map& cell_simplex_map() const {
-    return cell_simplex_map_;
-  }
-
-  /**
    * \brief Returns a map from the vertex cells in the cell complex of type Gudhi::Hasse_cell
    *  to their Cartesian coordinates.
    */
@@ -235,7 +226,6 @@ public:
 private:
   std::size_t intr_d_, cod_d_;
   Simplex_cell_maps simplex_cell_maps_;
-  Cell_simplex_map cell_simplex_map_;
   Cell_point_map cell_point_map_;
   std::vector<Hasse_cell*> hasse_cells_;
 };
