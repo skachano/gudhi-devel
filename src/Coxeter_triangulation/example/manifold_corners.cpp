@@ -89,4 +89,10 @@ int main(int argc, char** argv) {
     chi += (2*((i+1)%2)-1)*cc.simplex_cell_map(i).size();
   }
   std::cout << "Euler characteristic: " << chi << "\n";
+
+  std::vector<std::vector<bool> >
+    toggle_vectors(4, std::vector<bool>(std::pow(2, constraint_functions_.size()), true));
+  std::vector<std::vector<std::size_t> >
+    ref_vectors(4, std::vector<std::size_t>(std::pow(2, constraint_functions_.size()), 1));
+  
 }
