@@ -13,9 +13,8 @@
 #include <gudhi/Functions/Cartesian_product.h>
 #include <gudhi/Clock.h>
 
-#include <gudhi/IO/build_mesh_from_cell_complex_corners.h>
-// #include <gudhi/IO/output_meshes_to_medit.h>
-#include <gudhi/IO/output_meshes_to_off.h>
+#include <gudhi/IO/build_mesh_from_cell_complex.h>
+#include <gudhi/IO/output_meshes_to_medit.h>
 
 using namespace Gudhi::coxeter_triangulation;
 
