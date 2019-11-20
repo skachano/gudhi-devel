@@ -111,10 +111,11 @@ private:
       const Simplex_handle& simplex = sc_pair.first.first;
       const Constraint_set& constr_set = sc_pair.first.second;
       Hasse_cell* cell = sc_pair.second;
-      for (Simplex_handle cofacet: simplex.cofacet_range()) {
-	Hasse_cell* new_cell = insert_cell(cofacet, constr_set, cell_d);
-	new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
-      }
+      if (simplex.dimension() < simplex.vertex().size())
+	for (Simplex_handle cofacet: simplex.cofacet_range()) {
+	  Hasse_cell* new_cell = insert_cell(cofacet, constr_set, cell_d);
+	  new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
+	}
       for (std::size_t I: constr_set) {
 	Constraint_set new_constr_set(constr_set);
         new_constr_set.erase(I);

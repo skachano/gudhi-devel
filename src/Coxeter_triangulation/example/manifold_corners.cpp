@@ -83,4 +83,11 @@ int main(int argc, char** argv) {
     std::cout << i << ": " << dim_lists[i] << "\n";
   Cell_complex<Out_simplex_map> cc(fun->amb_d() - fun->cod_d());
   cc.construct_complex(out_simplex_map);
+
+  int chi = 0;
+  for (std::size_t i = 0; i < cc.simplex_cell_maps().size(); ++i) {
+    std::cout << " Cells of dim " << i << ": " << cc.simplex_cell_map(i).size() << "\n";
+    chi += (2*((i+1)%2)-1)*cc.simplex_cell_map(i).size();
+  }
+  std::cout << "Euler characteristic: " << chi << "\n";
 }
