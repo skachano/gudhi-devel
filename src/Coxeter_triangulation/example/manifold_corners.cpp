@@ -1,5 +1,6 @@
 #include <iostream>
 #include <complex>
+#include <unordered_set>
 
 #include <gudhi/Coxeter_triangulation.h>
 #include <gudhi/Functions/Constant_function.h>
@@ -54,7 +55,7 @@ int main(int argc, char** argv) {
   
   // Define a Coxeter triangulation scaled by a factor lambda.
   // The triangulation is translated by a random vector to avoid violating the genericity hypothesis.
-  double lambda = 0.2;
+  double lambda = 0.4;
   Coxeter_triangulation<> cox_tr(oracle.amb_d());
   cox_tr.change_offset(Eigen::VectorXd::Random(oracle.amb_d()));
   cox_tr.change_matrix(lambda * cox_tr.matrix());

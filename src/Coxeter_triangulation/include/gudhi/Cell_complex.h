@@ -77,11 +77,6 @@ public:
    *  ambient triangulation to the corresponding cells in the cell complex of various dimensions.
    */
   typedef std::vector<Simplex_cell_map> Simplex_cell_maps;
-  
-  /** \brief Type of a map from cells in the cell complex to the permutahedral representations
-   *  of the corresponding simplices in the ambient triangulation.
-   */
-  typedef std::map<Hasse_cell*, std::pair<Simplex_handle, Constraint_set> > Cell_simplex_map;
 
   /** \brief Type of a map from vertex cells in the cell complex to the permutahedral representations
    *  of their Cartesian coordinates.
@@ -97,8 +92,8 @@ private:
     auto pair = std::make_pair(simplex, constr_set);
     auto map_it = simplex_cell_map.find(pair);
     if (map_it == simplex_cell_map.end()) {
-      hasse_cells_.push_back(new Hasse_cell(cell_d));
-      Hasse_cell* new_cell = hasse_cells_.back();    
+      Hasse_cell* new_cell = new Hasse_cell(cell_d);
+      hasse_cells_.push_back(new_cell);
       simplex_cell_map.emplace(std::make_pair(pair, new_cell));
       return new_cell;
     }
