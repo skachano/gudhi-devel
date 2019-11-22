@@ -61,6 +61,13 @@ class Manifold_tracing {
       return boost::hash<typename Simplex_handle::Vertex>()(s.vertex());
     }
   };
+  struct Pair_hash {
+    typedef std::pair<Simplex_handle, Constraint_set> argument_type;
+    typedef std::size_t result_type;
+    result_type operator()(const argument_type& s) const noexcept {
+      return Simplex_hash()(s.first);
+    }
+  };
   
 public:
 
@@ -69,9 +76,9 @@ public:
    *   and values of type Constraint_set_intersection_pair.
    *   This type should be used for the output in the method manifold_tracing_algorithm.
    */
-  typedef std::unordered_map<Simplex_handle,
-			     std::pair<Constraint_set, Eigen::VectorXd>,
-			     Simplex_hash>
+  typedef std::unordered_map<std::pair<Simplex_handle, Constraint_set>,
+			     Eigen::VectorXd,
+			     Pair_hash>
   Out_simplex_map;
 
   /**
@@ -108,7 +115,7 @@ public:
     Constraint_set init_constraint_set;
     for (std::size_t I = 0; I < oracle.constraint_functions().size(); ++I)
       if ((*oracle.constraint_functions().at(I))(seed_point)(0) == 0) // RISKY: I use non-PL function
-	init_constraint_set.insert(I);
+    	init_constraint_set.insert(I);
     typename Simplex_handle::Vertex y(amb_d, 0);
     typename Simplex_handle::OrderedSetPartition omega(cod_d + 1 + init_constraint_set.size());
     for (std::size_t i = 0; i < omega.size(); ++i) {
@@ -119,8 +126,7 @@ public:
     }
     Simplex_handle init_s(y, omega);
     Eigen::VectorXd barycenter = triangulation.barycenter(init_s);
-    out_simplex_map.emplace(std::make_pair(init_s,
-  					   std::make_pair(init_constraint_set, seed_point)));
+    out_simplex_map.emplace(std::make_pair(std::make_pair(init_s, init_constraint_set), seed_point));
     queue.emplace(std::make_pair(init_s, init_constraint_set));
     std::cout << "\033[1;32mInserted " << init_s << ", " << init_constraint_set << " in S and Q.\033[0m\n";
     Eigen::VectorXd p_shift = seed_point - barycenter;
@@ -133,58 +139,55 @@ public:
       queue.pop();
       std::cout << "\033[1;34mPopped " << s << ", " << constr << " from Q\033[0m\n";
       if (s.dimension() != amb_d)
-	for (auto cof: s.cofacet_range())
-	  for (auto face: cof.facet_range()) {
-	    std::cout << " Cof: " << cof << " Fac: " << face << ": " << constr << " - ";
-	    Query_result<Simplex_handle> qr = oracle.intersects(face, constr, triangulation);
-	    if (qr.success)
-	      std::cout << "success!\n";
-	    else
-	      std::cout << "failure\n";
-	    if (qr.success) {
-	      Constraint_set face_constr(constr);
-	      std::size_t excess_constraints = 0;
-	      for (std::size_t I = 0; I < num_constraints; ++I)
-		if (constr.find(I) == constr.end() &&
-		    !oracle.lies_in_domain(qr.intersection, I, triangulation)) {
-		  std::cout << "\033[1;33m  Constraint " << I << " is not satisfied for " << face << ".\033[0m\n";
-		  face_constr.insert(I);
-		  if (++excess_constraints > 1)
-		    break;
-		}
-	      if (excess_constraints == 0 &&
-		  out_simplex_map.emplace(std::make_pair(face,
-							 std::make_pair(face_constr,
-									qr.intersection))).second) {
-		queue.emplace(std::make_pair(face, constr));
-		std::cout << "\033[1;32m  Inserted " << face << ", " << face_constr << " in S and Q.\033[0m\n";
-	      }
-	      if (excess_constraints == 1) {
-		assert(face_constr.size() == constr.size() + 1);
-		Query_result<Simplex_handle> qrb = oracle.intersects(cof, face_constr, triangulation);
-		if (qrb.success &&
-		    out_simplex_map.emplace(std::make_pair(cof,
-							   std::make_pair(face_constr,
-									  qrb.intersection))).second) {
-		  queue.emplace(std::make_pair(cof, face_constr));
-		  std::cout << "\033[1;32m  Inserted " << cof << ", " << face_constr << " in S and Q.\033[0m\n";
-		}
-	      }
-	    }
-	  }
+    	for (auto cof: s.cofacet_range())
+    	  for (auto face: cof.facet_range()) {
+    	    std::cout << " Cof: " << cof << " Fac: " << face << ": " << constr << " - ";
+    	    Query_result<Simplex_handle> qr = oracle.intersects(face, constr, triangulation);
+    	    if (qr.success)
+    	      std::cout << "success!\n";
+    	    else
+    	      std::cout << "failure\n";
+    	    if (qr.success) {
+    	      Constraint_set face_constr(constr);
+    	      std::size_t excess_constraints = 0;
+    	      for (std::size_t I = 0; I < num_constraints; ++I)
+    		if (constr.find(I) == constr.end() &&
+    		    !oracle.lies_in_domain(qr.intersection, I, triangulation)) {
+    		  std::cout << "\033[1;33m  Constraint " << I << " is not satisfied for " << face << ".\033[0m\n";
+    		  face_constr.insert(I);
+    		  if (++excess_constraints > 1)
+    		    break;
+    		}
+    	      if (excess_constraints == 0 &&
+    		  out_simplex_map.emplace(std::make_pair(std::make_pair(face,face_constr),
+							 qr.intersection)).second) {
+    		queue.emplace(std::make_pair(face, constr));
+    		std::cout << "\033[1;32m  Inserted " << face << ", " << face_constr << " in S and Q.\033[0m\n";
+    	      }
+    	      if (excess_constraints == 1) {
+    		assert(face_constr.size() == constr.size() + 1);
+    		Query_result<Simplex_handle> qrb = oracle.intersects(cof, face_constr, triangulation);
+    		if (qrb.success &&
+    		    out_simplex_map.emplace(std::make_pair(std::make_pair(cof, face_constr),
+							   qrb.intersection)).second) {
+    		  queue.emplace(std::make_pair(cof, face_constr));
+    		  std::cout << "\033[1;32m  Inserted " << cof << ", " << face_constr << " in S and Q.\033[0m\n";
+    		}
+    	      }
+    	    }
+    	  }
       if (s.dimension() != cod_d) 
-	for (auto facet: s.facet_range())
-	  for (std::size_t I: constr) {
-	    Constraint_set facet_constr(constr);
-	    facet_constr.erase(I);
-	    Query_result<Simplex_handle> qr = oracle.intersects(facet, facet_constr, triangulation);
-	    if (qr.success &&
-		oracle.lies_in_domain(qr.intersection, I, triangulation) &&
-		out_simplex_map.emplace(std::make_pair(facet,
-						       std::make_pair(facet_constr,
-								      qr.intersection))).second)
-	      queue.emplace(std::make_pair(facet, facet_constr));
-	  }
+    	for (auto facet: s.facet_range())
+    	  for (std::size_t I: constr) {
+    	    Constraint_set facet_constr(constr);
+    	    facet_constr.erase(I);
+    	    Query_result<Simplex_handle> qr = oracle.intersects(facet, facet_constr, triangulation);
+    	    if (qr.success &&
+    		oracle.lies_in_domain(qr.intersection, I, triangulation) &&
+    		out_simplex_map.emplace(std::make_pair(std::make_pair(facet, facet_constr),
+						       qr.intersection)).second)
+    	      queue.emplace(std::make_pair(facet, facet_constr));
+    	  }
     }
     
   }

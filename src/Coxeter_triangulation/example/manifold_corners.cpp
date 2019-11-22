@@ -27,8 +27,18 @@ int main(int argc, char** argv) {
   Constant_function fun(d, k, Eigen::VectorXd::Zero(0));  
   Eigen::VectorXd seed = Eigen::VectorXd::Zero(d);
   Function_Sm_in_Rd fun_bound(1.0, 1);
-  std::vector<Function*> constraint_functions_ = {&fun_bound};
+  Eigen::MatrixXd normal_matrix_2 = Eigen::MatrixXd::Zero(2, 1);
+  normal_matrix_2(1, 0) = 1.;
+  Function_affine_plane_in_Rd fun_bound2(normal_matrix_2, Eigen::Vector2d(0, 0.5));
 
+  Eigen::MatrixXd normal_matrix_3 = Eigen::MatrixXd::Zero(2, 1);
+  normal_matrix_3(0, 0) = 1.;
+  Function_affine_plane_in_Rd fun_bound3(normal_matrix_3, Eigen::Vector2d(0.5, 0));
+
+  std::vector<Function*> constraint_functions_ = {&fun_bound, &fun_bound2, &fun_bound3};
+  std::cout << "fun1(seed) =\n" << fun_bound(seed) << "\n"; 
+  std::cout << "fun2(seed) =\n" << fun_bound2(seed) << "\n"; 
+  
   // // Creating a flat torus S1xS1 in R4 from two circle functions
   // auto fun_flat_torus = make_product_function(fun_circle, fun_circle);
 
@@ -55,7 +65,7 @@ int main(int argc, char** argv) {
   
   // Define a Coxeter triangulation scaled by a factor lambda.
   // The triangulation is translated by a random vector to avoid violating the genericity hypothesis.
-  double lambda = 0.1;
+  double lambda = 0.65;
   Coxeter_triangulation<> cox_tr(oracle.amb_d());
   cox_tr.change_offset(Eigen::VectorXd::Random(oracle.amb_d()));
   cox_tr.change_matrix(lambda * cox_tr.matrix());
@@ -79,7 +89,7 @@ int main(int argc, char** argv) {
   // }
   std::vector<std::size_t> dim_lists(fun.amb_d() + 1);
   for (const auto& o_pair: out_simplex_map) {
-    dim_lists[o_pair.first.dimension()]++;
+    dim_lists[o_pair.first.first.dimension()]++;
   }
   for (std::size_t i = 0; i < dim_lists.size(); ++i)
     std::cout << i << ": " << dim_lists[i] << "\n";

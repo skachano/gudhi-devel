@@ -45,19 +45,12 @@ public:
   /** \brief Type of a simplex in the ambient triangulation.
    *  Is a model of the concept SimplexInCoxeterTriangulation.
    */
-  typedef typename Out_simplex_map_::key_type Simplex_handle;
+  typedef typename Out_simplex_map_::key_type::first_type Simplex_handle;
 
-  typedef typename Out_simplex_map_::mapped_type::first_type Constraint_set;
+  typedef typename Out_simplex_map_::key_type::second_type Constraint_set;
 
 private:
-  typedef typename Out_simplex_map_::hasher Simplex_hash;
-  struct Pair_hash {
-    typedef std::pair<Simplex_handle, Constraint_set> argument_type;
-    typedef std::size_t result_type;
-    result_type operator()(const argument_type& s) const noexcept {
-      return Simplex_hash()(s.first);
-    }
-  };
+  typedef typename Out_simplex_map_::hasher Pair_hash;
   
 public:
   /** \brief Type of a cell in the cell complex. 
@@ -131,14 +124,14 @@ private:
   void construct_complex_(const Out_simplex_map_& out_simplex_map) {
     std::cout << "Started cell complex construction...\n";
     if (!out_simplex_map.empty()) {
-      const Simplex_handle& simplex = out_simplex_map.begin()->first;
-      const Constraint_set& constr_set = out_simplex_map.begin()->second.first;
+      const Simplex_handle& simplex = out_simplex_map.begin()->first.first;
+      const Constraint_set& constr_set = out_simplex_map.begin()->first.second;
       cod_d_ = simplex.dimension() - constr_set.size();
     }
     for (auto& os_pair: out_simplex_map) {
-      const Simplex_handle& simplex = os_pair.first;
-      const Constraint_set& constr_set = os_pair.second.first;
-      const Eigen::VectorXd& point = os_pair.second.second;
+      const Simplex_handle& simplex = os_pair.first.first;
+      const Constraint_set& constr_set = os_pair.first.second;
+      const Eigen::VectorXd& point = os_pair.second;
       Hasse_cell* new_cell = insert_cell(simplex, constr_set, 0);
       cell_point_map_.emplace(std::make_pair(new_cell, point));
     }
