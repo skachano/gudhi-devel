@@ -177,17 +177,28 @@ public:
     	    }
     	  }
       if (s.dimension() != cod_d) 
-    	for (auto facet: s.facet_range())
-    	  for (std::size_t I: constr) {
-    	    Constraint_set facet_constr(constr);
+    	for (auto facet: s.facet_range()) {
+	  for (std::size_t I = 0; I < num_constraints; ++I) {
+	    Constraint_set facet_constr(constr);
     	    facet_constr.erase(I);
     	    Query_result<Simplex_handle> qr = oracle.intersects(facet, facet_constr, triangulation);
-    	    if (qr.success &&
-    		oracle.lies_in_domain(qr.intersection, I, triangulation) &&
-    		out_simplex_map.emplace(std::make_pair(std::make_pair(facet, facet_constr),
-						       qr.intersection)).second)
-    	      queue.emplace(std::make_pair(facet, facet_constr));
-    	  }
+	    if (qr.success) {
+	      bool lies_inside = true;
+	      for (std::size_t J = 0; J < num_constraints; ++J)
+		if (facet_constr.find(J)  == facet_constr.end() &&
+		    !oracle.lies_in_domain(qr.intersection, J, triangulation)) {
+		  lies_inside = false;
+		  break;
+		}
+	      if (lies_inside &&
+		  out_simplex_map.emplace(std::make_pair(std::make_pair(facet, facet_constr),
+	  						 qr.intersection)).second) {
+	  	queue.emplace(std::make_pair(facet, facet_constr));
+	  	std::cout << "\033[1;32m  Inserted " << facet << ", " << facet_constr << " in S and Q.\033[0m\n";
+	      }
+	    }
+	  }
+	}
     }
     
   }
