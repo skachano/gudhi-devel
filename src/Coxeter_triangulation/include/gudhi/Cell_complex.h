@@ -95,6 +95,7 @@ private:
       Hasse_cell* new_cell = new Hasse_cell(cell_d);
       hasse_cells_.push_back(new_cell);
       simplex_cell_map.emplace(std::make_pair(pair, new_cell));
+      std::cout << "\033[1;32m   Inserted cell " << simplex << ", " << constr_set << " of dimension " << cell_d << ".\033[0m\n";
       return new_cell;
     }
     return map_it->second;
@@ -104,23 +105,31 @@ private:
     for (auto& sc_pair: simplex_cell_maps_[cell_d - 1]) {
       const Simplex_handle& simplex = sc_pair.first.first;
       const Constraint_set& constr_set = sc_pair.first.second;
+      std::cout << "Current face \033[1;31m" << simplex << ", " << constr_set << "\033[0m:\n";
       Hasse_cell* cell = sc_pair.second;
       std::size_t amb_d = simplex.vertex().size();
       if (simplex.dimension() < amb_d)
 	for (Simplex_handle cofacet: simplex.cofacet_range()) {
+	  std::cout << " Inserting " << cofacet << ", " << constr_set << "...\n";
 	  Hasse_cell* new_cell = insert_cell(cofacet, constr_set, cell_d);
 	  new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
+	  std::cout << "\033[1;33m Boundary of " << cofacet << ", " << constr_set << " consists of "
+		    << new_cell->get_boundary().size() << " elements.\033[0m\n";
 	}
       for (std::size_t I: constr_set) {
 	Constraint_set new_constr_set(constr_set);
         new_constr_set.erase(I);
+	std::cout << " Inserting " << simplex << ", " << new_constr_set << "...\n";
 	Hasse_cell* new_cell = insert_cell(simplex, new_constr_set, cell_d);
 	new_cell->get_boundary().emplace_back(std::make_pair(cell, 1));
+	std::cout << "\033[1;33m Boundary of " << simplex << ", " << new_constr_set << " consists of "
+		  << new_cell->get_boundary().size() << " elements.\033[0m\n";
       }
     }
   }
   
   void construct_complex_(const Out_simplex_map_& out_simplex_map) {
+    std::cout << "Started cell complex construction...\n";
     if (!out_simplex_map.empty()) {
       const Simplex_handle& simplex = out_simplex_map.begin()->first;
       const Constraint_set& constr_set = out_simplex_map.begin()->second.first;

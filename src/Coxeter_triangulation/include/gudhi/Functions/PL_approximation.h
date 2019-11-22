@@ -34,8 +34,7 @@ namespace coxeter_triangulation {
  *
  * \ingroup coxeter_triangulation
  */
-template <class Function_,
-	  class Triangulation_>
+template <class Triangulation_>
 struct PL_approximation : public Function {
   
   /** 
@@ -53,7 +52,7 @@ struct PL_approximation : public Function {
     std::size_t j = 0;
     for (auto v: s.vertex_range()) {
       Eigen::VectorXd pt_v = tr_.cartesian_coordinates(v);
-      Eigen::VectorXd fun_v = fun_(pt_v);
+      Eigen::VectorXd fun_v = (*fun_ptr_)(pt_v);
       for (std::size_t i = 1; i < amb_d + 1; ++i)
 	vertex_matrix(i, j) = pt_v(i-1); 
       for (std::size_t i = 0; i < cod_d; ++i)
@@ -71,10 +70,10 @@ struct PL_approximation : public Function {
   }
 
   /** \brief Returns the domain (ambient) dimension. */
-  std::size_t amb_d() const {return fun_.amb_d();}
+  std::size_t amb_d() const {return fun_ptr_->amb_d();}
 
   /** \brief Returns the codomain dimension. */
-  std::size_t cod_d() const {return fun_.cod_d();}
+  std::size_t cod_d() const {return fun_ptr_->cod_d();}
 
   /** \brief Returns a point on the zero-set. */
   Eigen::VectorXd seed() const {
@@ -89,11 +88,11 @@ struct PL_approximation : public Function {
    * @param[in] function The function.
    * @param[in] triangulation The ambient triangulation.
    */
-  PL_approximation(const Function_& function, const Triangulation_& triangulation)
-    : fun_(function), tr_(triangulation) {}
+  PL_approximation(Function* function, const Triangulation_& triangulation)
+    : fun_ptr_(function), tr_(triangulation) {}
 
 private:  
-  Function_ fun_;
+  Function* fun_ptr_;
   Triangulation_ tr_;
 };
 
@@ -110,12 +109,11 @@ private:
  *
  * \ingroup coxeter_triangulation
  */
-template <class Function_,
-	  class Triangulation_>
-PL_approximation<Function_, Triangulation_>
-make_pl_approximation(const Function_& function,
+template <class Triangulation_>
+PL_approximation<Triangulation_>
+make_pl_approximation(Function* function,
 		      const Triangulation_& triangulation) {
-  return PL_approximation<Function_, Triangulation_>(function, triangulation);
+  return PL_approximation<Triangulation_>(function, triangulation);
 }
 
 } // namespace coxeter_triangulation

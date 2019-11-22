@@ -64,7 +64,8 @@ class Implicit_manifold_intersection_oracle {
 	matrix(i, j) = v_coords(i-1);
       for (std::size_t I: constraint_set) {
 	Eigen::VectorXd v_cart = triangulation.cartesian_coordinates(v);
-	Eigen::VectorXd bv_coords = (*constraint_functions_.at(I))(v_cart);
+	Eigen::VectorXd bv_coords =
+	  make_pl_approximation(constraint_functions_.at(I), triangulation)(v_cart);
 	matrix(i++, j) = bv_coords(0);
       }
       j++;
@@ -74,6 +75,7 @@ class Implicit_manifold_intersection_oracle {
     for (std::size_t i = 1; i < matrix_dim; ++i)
       z(i) = 0;
     Eigen::VectorXd lambda = matrix.colPivHouseholderQr().solve(z);
+    // std::cout << "\033[0;35m    lambda:\n" << lambda << "\033[0m\n\n";
     return lambda;
   }
 
@@ -87,6 +89,10 @@ class Implicit_manifold_intersection_oracle {
     std::size_t amb_d = triangulation.dimension();
     std::size_t cod_d = simplex.dimension();
 
+    double error = 1e-10;
+    if (lambda.sum() < 1 - error || lambda.sum() > 1 + error)
+      return QR({Eigen::VectorXd(), false});
+      // std::cout << "\n\033[1;31m    lambda:\n" << lambda << "\033[0m\n\n";
     for (std::size_t i = 0; i < (std::size_t)lambda.size(); ++i)
       if (lambda(i) < 0 || lambda(i) > 1)
 	return QR({Eigen::VectorXd(), false});
@@ -160,16 +166,13 @@ public:
    *  dimension as the ambient dimension of the manifold 
    *  (the domain dimension of the function).
    */
-  template <class Triangulation,
-	    class Constraint_set>
+  template <class Triangulation>
   bool lies_in_domain(const Eigen::VectorXd& p,
-		      const Constraint_set& constraint_set,
+		      const std::size_t& I,
 		      const Triangulation& triangulation) const {
-    for (const std::size_t& I: constraint_set) {
-      Eigen::VectorXd pl_p = make_pl_approximation(*constraint_functions_.at(I), triangulation)(p);
-      if (pl_p(0) > 0) 
-	return false;
-    }
+    Eigen::VectorXd pl_p = make_pl_approximation(constraint_functions_.at(I), triangulation)(p);
+    if (pl_p(0) > 0) 
+      return false;
     return true;
   }
 
