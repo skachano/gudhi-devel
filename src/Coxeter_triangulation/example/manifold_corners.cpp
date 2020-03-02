@@ -20,48 +20,87 @@
 
 using namespace Gudhi::coxeter_triangulation;
 
+struct Function_x_abs : public Function {
+
+  Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
+    double x = p(0);
+    Eigen::VectorXd result(cod_d());
+    result(0) = std::abs(x) - 1;
+    return result;
+  }
+
+  std::size_t amb_d() const {return 3;};
+  std::size_t cod_d() const {return 1;};
+
+  Eigen::VectorXd seed() const {
+    Eigen::VectorXd result = Eigen::VectorXd::Zero(amb_d());
+    result(0) = 1;
+    return result;
+  }
+
+  Function_x_abs() {}
+};
+
+struct Function_y_abs : public Function {
+
+  Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
+    double y = p(1);
+    Eigen::VectorXd result(cod_d());
+    result(0) = std::abs(y) - 1;
+    return result;
+  }
+
+  std::size_t amb_d() const {return 3;};
+  std::size_t cod_d() const {return 1;};
+
+  Eigen::VectorXd seed() const {
+    Eigen::VectorXd result = Eigen::VectorXd::Zero(amb_d());
+    result(1) = 1;
+    return result;
+  }
+
+  Function_y_abs() {}
+};
+
+struct Function_z_abs : public Function {
+
+  Eigen::VectorXd operator()(const Eigen::VectorXd& p) const {
+    double z = p(2);
+    Eigen::VectorXd result(cod_d());
+    result(0) = std::abs(z) - 1;
+    return result;
+  }
+
+  std::size_t amb_d() const {return 3;};
+  std::size_t cod_d() const {return 1;};
+
+  Eigen::VectorXd seed() const {
+    Eigen::VectorXd result = Eigen::VectorXd::Zero(amb_d());
+    result(2) = 1;
+    return result;
+  }
+
+  Function_z_abs() {}
+};
+
+
 int main(int argc, char** argv) {
   // Creating a circle S1 in R2 of specified radius
-  std::size_t d = 2;
+  std::size_t d = 3;
   std::size_t k = 0;
   Constant_function fun(d, k, Eigen::VectorXd::Zero(0));  
   Eigen::VectorXd seed = Eigen::VectorXd::Zero(d);
-  Function_Sm_in_Rd fun_bound(1.0, 1);
-  Eigen::MatrixXd normal_matrix_2 = Eigen::MatrixXd::Zero(2, 1);
-  normal_matrix_2(1, 0) = 1.;
-  Function_affine_plane_in_Rd fun_bound2(normal_matrix_2, Eigen::Vector2d(0, 0.5));
+  Function_x_abs fun_bound_x;
+  Function_y_abs fun_bound_y;
+  Function_z_abs fun_bound_z;
 
-  Eigen::MatrixXd normal_matrix_3 = Eigen::MatrixXd::Zero(2, 1);
-  normal_matrix_3(0, 0) = 1.;
-  Function_affine_plane_in_Rd fun_bound3(normal_matrix_3, Eigen::Vector2d(0.5, 0));
-
-  std::vector<Function*> constraint_functions_ = {&fun_bound, &fun_bound2, &fun_bound3};
-  std::cout << "fun1(seed) =\n" << fun_bound(seed) << "\n"; 
-  std::cout << "fun2(seed) =\n" << fun_bound2(seed) << "\n"; 
-  
-  // // Creating a flat torus S1xS1 in R4 from two circle functions
-  // auto fun_flat_torus = make_product_function(fun_circle, fun_circle);
-
-  // // Apply a random rotation in R4
-  // auto matrix = random_orthogonal_matrix(4);
-  // auto fun_flat_torus_rotated = make_linear_transformation(fun_flat_torus, matrix);
-
-  // // Computing the seed of the function fun_flat_torus
-  // Eigen::VectorXd seed = fun_flat_torus_rotated.seed();    
-
-  // // Defining a domain function that defines the boundary, which is a hyperplane passing by the origin and orthogonal to x.
-  // Eigen::MatrixXd normal_matrix = Eigen::MatrixXd::Zero(4, 1);
-  // for (std::size_t i = 0; i < 4; i++)
-  //   normal_matrix(i,0) = -seed(i);
-  // Function_affine_plane_in_Rd fun_bound(normal_matrix, -seed/2);
-
+  std::vector<Function*> constraint_functions_ = {&fun_bound_x, &fun_bound_y, &fun_bound_z};
+  std::cout << "fun_x(seed) =\n" << fun_bound_x(seed) << "\n"; 
+  std::cout << "fun_y(seed) =\n" << fun_bound_y(seed) << "\n"; 
+  std::cout << "fun_z(seed) =\n" << fun_bound_z(seed) << "\n"; 
   
   // Defining the intersection oracle
   auto oracle = make_oracle(&fun, constraint_functions_);
-  // Function* fun_ptr = oracle.function();
-  // std::cout << fun_ptr->amb_d() << " " << fun_ptr->cod_d() << "\n" << fun_ptr->seed() << "\n";
-  // fun = oracle.constraint_functions().at(0);
-  // std::cout << fun_ptr->amb_d() << " " << fun_ptr->cod_d() << "\n" << fun_ptr->seed() << "\n";
   
   // Define a Coxeter triangulation scaled by a factor lambda.
   // The triangulation is translated by a random vector to avoid violating the genericity hypothesis.
@@ -107,7 +146,15 @@ int main(int argc, char** argv) {
     toggle_vectors(4, std::vector<bool>(std::pow(2, constraint_functions_.size()), true));
   std::vector<std::vector<std::size_t> >
     ref_vectors(4, std::vector<std::size_t>(std::pow(2, constraint_functions_.size()), 1));
-  output_meshes_to_medit(2,
+  ref_vectors[1][0] = 2;
+  ref_vectors[1][1] = 3;
+  ref_vectors[1][2] = 4;
+  ref_vectors[1][3] = 5;
+  ref_vectors[1][4] = 6;
+  ref_vectors[1][5] = 7;
+  ref_vectors[1][6] = 8;
+  ref_vectors[1][7] = 9;
+  output_meshes_to_medit(3,
   			 "corner_manifold",
   			 build_mesh_from_cell_complex(cell_complex,
   						      toggle_vectors,
